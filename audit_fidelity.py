@@ -29,9 +29,10 @@ def snapshot(tracks):
     return {t.index: [(n.start, n.end, n.pitch) for n in t.notes] for t in tracks}
 
 
-def run(mid: str, cfg_path: str):
+def run(mid: str, cfg_path: str = None, profile_path: str = None):
+    import main as pipeline
     score = midi_inspector.parse_midi(mid)
-    cfg = ScoreEngravingConfig(**json.load(open(cfg_path, encoding="utf-8")))
+    cfg = pipeline.build_config(score, cfg_path, profile_path)
     midi_inspector.apply_config(score, cfg)
     raw = snapshot(score.tracks)
     measures = midi_inspector.build_measure_map(score)
@@ -121,12 +122,27 @@ def audit(score, raw):
 
 
 if __name__ == "__main__":
-    # Default to the bundled test material so the audit runs out of the box.
-    mid = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "test_orchestra.mid")
-    cfg = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "engraving_config.json")
-    for path in (mid, cfg):
-        if not os.path.exists(path):
-            raise SystemExit(f"file not found: {path}\n"
-                             "usage: audit_fidelity.py input.mid config.json")
-    score, raw, _ = run(mid, cfg)
+    args = sys.argv[1:]
+    profile = None
+    if "--profile" in args:
+        i = args.index("--profile")
+        if i + 1 >= len(args):
+            raise SystemExit("usage: audit_fidelity.py [input.mid] [config.json] [--profile PROFILE]")
+        profile = args[i + 1]
+        del args[i:i + 2]
+
+    mid = args[0] if args else os.path.join(HERE, "test_orchestra.mid")
+    if not os.path.exists(mid):
+        raise SystemExit(f"file not found: {mid}\n"
+                         "usage: audit_fidelity.py [input.mid] [config.json] [--profile PROFILE]")
+    if len(args) > 1:
+        cfg = args[1]
+    elif profile:
+        cfg = None                      # profile only: auto-detect the rest
+    else:
+        cfg = os.path.join(HERE, "engraving_config.json")
+    if cfg and not os.path.exists(cfg):
+        raise SystemExit(f"file not found: {cfg}")
+
+    score, raw, _ = run(mid, cfg, profile)
     audit(score, raw)

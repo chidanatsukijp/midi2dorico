@@ -23,19 +23,25 @@ def resolve_input(path: str) -> str:
     return local if os.path.exists(local) else path
 
 
+def build_config(score, config_path: str = None,
+                 profile_path: str = None) -> ScoreEngravingConfig:
+    """Resolve the engraving config: heuristics, an explicit file, and/or a profile."""
+    if config_path:
+        raw = json.load(open(config_path, encoding="utf-8"))
+        return (profiles.merge_raw(raw, profiles.load(profile_path))
+                if profile_path else ScoreEngravingConfig(**raw))
+    config = midi_inspector.build_default_config(score)
+    if profile_path:
+        # No explicit config: the profile overrides the automatic detection.
+        config = profiles.merge(config, profiles.load(profile_path))
+    return config
+
+
 def run(input_path: str, output_path: str, config_path: str = None, manifest_path: str = None,
         profile_path: str = None):
     input_path = resolve_input(input_path)
     score = midi_inspector.parse_midi(input_path)
-    if config_path:
-        raw = json.load(open(config_path, encoding="utf-8"))
-        config = (profiles.merge_raw(raw, profiles.load(profile_path))
-                  if profile_path else ScoreEngravingConfig(**raw))
-    else:
-        config = midi_inspector.build_default_config(score)
-        if profile_path:
-            # No explicit config: the profile overrides the automatic detection.
-            config = profiles.merge(config, profiles.load(profile_path))
+    config = build_config(score, config_path, profile_path)
     midi_inspector.apply_config(score, config)
     # Merge multi-track parts before any cleanup work.
     midi_inspector.merge_tracks_by_group(score, getattr(config, "program_techniques", {}))

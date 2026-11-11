@@ -6,6 +6,7 @@ import json
 import os
 
 import midi_inspector
+import profiles
 import timing_cleaner
 import grand_staff_splitter
 import harp_solver
@@ -22,16 +23,19 @@ def resolve_input(path: str) -> str:
     return local if os.path.exists(local) else path
 
 
-def load_config(path: str) -> ScoreEngravingConfig:
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
-    return ScoreEngravingConfig(**data)
-
-
-def run(input_path: str, output_path: str, config_path: str = None, manifest_path: str = None):
+def run(input_path: str, output_path: str, config_path: str = None, manifest_path: str = None,
+        profile_path: str = None):
     input_path = resolve_input(input_path)
     score = midi_inspector.parse_midi(input_path)
-    config = load_config(config_path) if config_path else midi_inspector.build_default_config(score)
+    if config_path:
+        raw = json.load(open(config_path, encoding="utf-8"))
+        config = (profiles.merge_raw(raw, profiles.load(profile_path))
+                  if profile_path else ScoreEngravingConfig(**raw))
+    else:
+        config = midi_inspector.build_default_config(score)
+        if profile_path:
+            # No explicit config: the profile overrides the automatic detection.
+            config = profiles.merge(config, profiles.load(profile_path))
     midi_inspector.apply_config(score, config)
     # Merge multi-track parts before any cleanup work.
     midi_inspector.merge_tracks_by_group(score, getattr(config, "program_techniques", {}))
@@ -64,6 +68,8 @@ def main() -> None:
     p.add_argument("--output", default="full_score.musicxml", help="Output .musicxml file")
     p.add_argument("--config", default=None, help="Optional JSON engraving config (Pydantic schema)")
     p.add_argument("--manifest", default=None, help="Optional output path for the track manifest JSON")
+    p.add_argument("--profile", default=None,
+                   help="Sample-library profile: a name in profiles/ or a path to a JSON file")
     p.add_argument("--interactive", action="store_true",
                    help="Interactively ask about uncertain track settings, then convert")
     args = p.parse_args()
@@ -74,8 +80,10 @@ def main() -> None:
         interactive.build_config_interactive(args.input, config_path)
         args.config = config_path
 
-    score, _ = run(args.input, args.output, args.config, args.manifest)
+    score, _ = run(args.input, args.output, args.config, args.manifest, args.profile)
 
+    if args.profile:
+        print(f"profile: {profiles.resolve(args.profile)}")
     print(f"Wrote {args.output}")
     for track in score.tracks:
         extra = []

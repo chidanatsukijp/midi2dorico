@@ -1,0 +1,64 @@
+{
+  "_comment": [
+    "Template for a sample-library profile. Copy it, rename it, fill in what your",
+    "DAW/library actually uses, then run:",
+    "",
+    "    python main.py --input your_score.mid --profile your-profile --output score.musicxml",
+    "",
+    "Everything here is optional. An explicit --config still wins over the profile.",
+    "'score' holds score-wide settings (same names as config_schema.ScoreEngravingConfig).",
+    "'tracks' holds fnmatch patterns applied to the MIDI track names."
+  ],
+  "name": "Example library",
+  "description": "Program changes carry the articulation; keyswitches start at C0 (24).",
+  "score": {
+    "program_techniques": {
+      "44": "trem.",
+      "45": "pizz.",
+      "60": "arco"
+    },
+    "keyswitch_map": {
+      "24": "arco",
+      "25": "pizz.",
+      "26": "staccato",
+      "27": "spiccato",
+      "28": "legato",
+      "29": "tremolo"
+    }
+  },
+  "tracks": [
+    {
+      "match": "horn*",
+      "instrument_type": "brass",
+      "transpose_semitones": 7
+    },
+    {
+      "match": "trumpet*",
+      "instrument_type": "brass",
+      "transpose_semitones": 2
+    },
+    {
+      "match": "*clarinet*",
+      "instrument_type": "winds",
+      "transpose_semitones": 2
+    },
+    {
+      "match": "contra*",
+      "instrument_type": "strings",
+      "transpose_semitones": 12
+    },
+    {
+      "match": "*piccolo",
+      "instrument_type": "winds",
+      "transpose_semitones": -12
+    },
+    {
+      "match": "*harp",
+      "instrument_type": "harp",
+      "min_playable_pitch": 24,
+      "keyswitch_map": {
+        "2": "Glissando"
+      }
+    }
+  ]
+}

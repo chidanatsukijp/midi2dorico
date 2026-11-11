@@ -175,6 +175,35 @@ def test_keyswitch_map() -> str:
     return "4 precedence cases"
 
 
+
+def test_profiles() -> str:
+    """A profile supplies library conventions; an explicit config still wins."""
+    import profiles
+    from config_schema import ScoreEngravingConfig
+
+    base = ScoreEngravingConfig(title="t", tracks=[
+        {"track_index": 0, "original_name": "Horn in F 1", "part_name": "Horn 1"},
+        {"track_index": 1, "original_name": "Violin I", "part_name": "Vln I",
+         "instrument_type": "strings", "min_playable_pitch": 55},
+    ])
+    prof = {
+        "score": {"program_techniques": {"45": "pizz."}, "rest_style": "merged"},
+        "tracks": [{"match": "horn*", "instrument_type": "brass",
+                     "transpose_semitones": 7, "keyswitch_map": {"25": "pizz."}}],
+    }
+    merged = profiles.merge(base, prof)
+    eq(merged.program_techniques, {"45": "pizz."}, "score block merged")
+    eq(merged.rest_style, "merged", "score block merged")
+    horn = merged.tracks[0]
+    eq(horn.instrument_type, "brass", "pattern matched")
+    eq(horn.transpose_semitones, 7, "track override")
+    eq(horn.keyswitch_map, {25: "pizz."}, "keyswitch keys coerced to int")
+    vln = merged.tracks[1]
+    eq(vln.instrument_type, "strings", "non-matching track untouched")
+    eq(vln.min_playable_pitch, 55, "non-matching track keeps its pitch floor")
+    return "2 blocks, 1 pattern"
+
+
 def measure_lengths(root) -> dict:
     """(part_id, measure_number) -> expected divisions, following <time> changes."""
     out = {}
@@ -302,6 +331,7 @@ def main() -> int:
     check("two voices per staff", test_two_voices)
     check("merge before cleanup", test_merge_before_cleanup)
     check("keyswitch map is configurable", test_keyswitch_map)
+    check("library profiles", test_profiles)
 
     print("integration")
     check("end-to-end scores", lambda: test_integration(quick))

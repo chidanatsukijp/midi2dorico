@@ -134,6 +134,34 @@ track names.
 
 A sub-range note that matches no mapping is dropped as a silent trigger.
 
+### Library profiles
+
+The conventions that belong to a *sample library* rather than to a piece of music —
+which program numbers mean `pizz.`/`trem.`, where the keyswitches sit, how each
+instrument transposes — can live in a reusable profile:
+
+```bash
+python main.py --input your_score.mid --profile example --output score.musicxml
+```
+
+`example` resolves to `profiles/example.json`; a path also works. The profile is a base
+layer, so anything in an explicit `--config` still wins. A profile has two blocks:
+
+| Block | Contents |
+|---|---|
+| `score` | score-wide settings: `program_techniques`, `keyswitch_map`, `rest_style`, … |
+| `tracks` | fnmatch patterns on the MIDI track name, each with rule overrides |
+
+```json
+{
+  "score": { "program_techniques": { "45": "pizz." } },
+  "tracks": [
+    { "match": "horn*", "instrument_type": "brass", "transpose_semitones": 7 },
+    { "match": "*harp", "min_playable_pitch": 24, "keyswitch_map": { "2": "Glissando" } }
+  ]
+}
+```
+
 ## Regression tests
 
 ```bash

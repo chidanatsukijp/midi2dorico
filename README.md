@@ -158,12 +158,19 @@ The integration stage checks every generated score for schema validity, measure 
 tie balance and the R1–R7 notation rules. Scores whose MIDI/config are absent are
 skipped, so a fresh clone only needs the built-in test material.
 
-## Audits
+## Tools
 
-```bash
-python audit_notation.py score.musicxml              # engraving rules R1-R7
-python audit_fidelity.py input.mid config.json       # onsets/durations vs the MIDI
-```
+| Command | What it does |
+|---|---|
+| `python audit_notation.py score.musicxml` | Engraving rules R1–R7; exits non-zero when a rule is broken |
+| `python audit_fidelity.py input.mid config.json` | Onset/duration fidelity against the source MIDI |
+| `python render_pdf.py score.musicxml score.pdf a4 45` | Multi-page PDF preview |
+| `python render_musicxml.py score.musicxml page.png` | Single-page PNG preview |
+| `python preview_part.py score.musicxml "Violin I" 1 8` | Render one part, measures 1–8, to PNG |
+| `python main.py --interactive ...` | Ask per track what the names, transpositions and keyswitches mean, then convert |
+
+The rendering helpers need the optional dependencies:
+`pip install -r requirements-render.txt`.
 
 ## Limitations
 

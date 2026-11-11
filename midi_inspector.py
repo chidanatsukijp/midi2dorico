@@ -319,6 +319,8 @@ def attach_technique_directions(track: Track,
     """Turn program changes into technique texts (pizz. / arco / trem. ...)."""
     if not program_techniques:
         return
+    if getattr(track, "_techniques_attached", False):
+        return
     for beat, prog in sorted(track.program_changes):
         text = program_techniques.get(str(prog))
         if not text:
@@ -328,6 +330,7 @@ def attach_technique_directions(track: Track,
         if beat < 1e-9 and text.strip().lower() in ("arco", "ord.", "ordinario"):
             continue
         track.directions.append((beat, text))
+    track._techniques_attached = True
 
 
 def merge_tracks_by_group(score: Score,

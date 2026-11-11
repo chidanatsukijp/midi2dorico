@@ -1,4 +1,4 @@
-"""Preview the drum part: extract a measure range and render it to PNG."""
+"""Render one part of a score (a measure range) to a PNG preview."""
 from __future__ import annotations
 
 import copy
@@ -68,11 +68,20 @@ def render(src: str, out_png: str, width: int = 2600, scale: int = 70) -> None:
 
 
 if __name__ == "__main__":
-    first = int(sys.argv[1]) if len(sys.argv) > 1 else 36
-    last = int(sys.argv[2]) if len(sys.argv) > 2 else 41
-    part = sys.argv[3] if len(sys.argv) > 3 else "Drum set"
-    tag = f"{first}_{last}"
-    xml = os.path.join(HERE, f"preview_{tag}.musicxml")
-    png = os.path.join(HERE, f"preview_{tag}.png")
-    extract(os.path.join(HERE, "123_full_score.musicxml"), xml, part, first, last)
-    render(xml, png)
+    import argparse
+
+    ap = argparse.ArgumentParser(
+        description="Render one part of a score (a measure range) to a PNG preview.")
+    ap.add_argument("score", help="input .musicxml")
+    ap.add_argument("part", help='part name exactly as in <part-name>, e.g. "Violin I"')
+    ap.add_argument("first", type=int, help="first measure number")
+    ap.add_argument("last", type=int, help="last measure number")
+    ap.add_argument("--out", default=None,
+                    help="output PNG (default: preview_<first>_<last>.png next to this script)")
+    a = ap.parse_args()
+
+    tag = f"{a.first}_{a.last}"
+    sliced = os.path.join(HERE, f"preview_{tag}.musicxml")
+    png = a.out or os.path.join(HERE, f"preview_{tag}.png")
+    extract(a.score, sliced, a.part, a.first, a.last)
+    render(sliced, png)

@@ -1234,6 +1234,13 @@ def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], k
 
 def build_musicxml(score: Score, config: ScoreEngravingConfig) -> str:
     _REST_STYLE["style"] = getattr(config, "rest_style", "standard")
+    # Turn program changes into technique texts here as well, so calling
+    # build_musicxml() directly (as a library, without main.run) does not silently
+    # lose pizz./arco markings. Idempotent: merge_tracks_by_group already did it.
+    from midi_inspector import attach_technique_directions
+    for track in score.tracks:
+        attach_technique_directions(track, getattr(config, "program_techniques", {}))
+        track.directions.sort(key=lambda d: d[0])
     parts = _group_parts(score, config.score_order, getattr(config, 'program_techniques', {}))
     for part in parts:
         _plan_dynamics(part)

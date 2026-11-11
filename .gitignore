@@ -1,0 +1,27 @@
+# ---- generated output -------------------------------------------------------
+# Keep the repository small: scores and PDFs are build artefacts.
+*.musicxml
+*.pdf
+
+# ---- source material --------------------------------------------------------
+# Real arrangements are copyrighted; do not publish them in this repo.
+unravel*
+123_*
+123.mid
+
+# ---- python -----------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# one-off patch scripts used during development
+_*.py
+
+# ---- editors / OS -----------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

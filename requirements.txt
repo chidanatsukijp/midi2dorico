@@ -1,0 +1,6 @@
+# Core pipeline (required)
+mido>=1.3.0
+pydantic>=2.0.0
+lxml>=5.0.0          # MusicXML schema validation in the regression suite
+
+# Optional PDF preview: pip install -r requirements-render.txt

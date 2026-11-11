@@ -1,0 +1,7 @@
+# Normalise line endings: keep LF in the repository (CI runs on Linux)
+* text=auto eol=lf
+
+# Binary assets
+*.png binary
+*.mid binary
+*.xlsx binary

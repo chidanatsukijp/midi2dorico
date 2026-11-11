@@ -1,0 +1,6 @@
+# Optional: only needed for PDF/SVG preview rendering
+#   render_pdf.py, render_musicxml.py, preview_part.py
+verovio>=5.0.0
+pymupdf>=1.24.0
+reportlab>=4.0.0
+svglib>=1.5.0

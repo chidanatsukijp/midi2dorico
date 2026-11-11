@@ -1,6 +1,6 @@
 # midi2dorico
 
-[![tests](https://github.com/chidanatsukijp/midi2musicxml_improver/actions/workflows/tests.yml/badge.svg)](https://github.com/chidanatsukijp/midi2musicxml_improver/actions/workflows/tests.yml)
+[![tests](https://github.com/chidanatsukijp/midi2dorico/actions/workflows/tests.yml/badge.svg)](https://github.com/chidanatsukijp/midi2dorico/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Turn a multi-track orchestral DAW MIDI into a Dorico-ready MusicXML full score.**

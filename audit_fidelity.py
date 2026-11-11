@@ -121,7 +121,12 @@ def audit(score, raw):
 
 
 if __name__ == "__main__":
-    mid = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "123.mid")
-    cfg = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "123_config.json")
+    # Default to the bundled test material so the audit runs out of the box.
+    mid = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "test_orchestra.mid")
+    cfg = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "engraving_config.json")
+    for path in (mid, cfg):
+        if not os.path.exists(path):
+            raise SystemExit(f"file not found: {path}\n"
+                             "usage: audit_fidelity.py input.mid config.json")
     score, raw, _ = run(mid, cfg)
     audit(score, raw)

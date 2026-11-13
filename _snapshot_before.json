@@ -1,0 +1,223 @@
+{
+  "instrument_order": {
+    "brass": 2,
+    "harp": 4,
+    "other": 6,
+    "percussion": 5,
+    "piano": 3,
+    "strings": 0,
+    "winds": 1
+  },
+  "midi_programs": {
+    "brass": 61,
+    "harp": 46,
+    "other": 0,
+    "percussion": 0,
+    "piano": 0,
+    "strings": 48,
+    "winds": 73
+  },
+  "noteheads": {
+    "37": "x",
+    "39": "slash",
+    "42": "x",
+    "44": "x",
+    "46": "circle-x",
+    "49": "x",
+    "51": "x",
+    "52": "circle-x",
+    "53": "diamond",
+    "54": "diamond",
+    "55": "x",
+    "56": "triangle",
+    "57": "x",
+    "58": "triangle",
+    "59": "x",
+    "69": "triangle",
+    "70": "triangle",
+    "75": "triangle",
+    "76": "triangle",
+    "77": "triangle",
+    "80": "triangle",
+    "81": "triangle"
+  },
+  "percussion_display": {
+    "35": [
+      "F",
+      "4"
+    ],
+    "36": [
+      "F",
+      "4"
+    ],
+    "37": [
+      "C",
+      "5"
+    ],
+    "38": [
+      "C",
+      "5"
+    ],
+    "39": [
+      "C",
+      "5"
+    ],
+    "40": [
+      "C",
+      "5"
+    ],
+    "41": [
+      "A",
+      "4"
+    ],
+    "42": [
+      "G",
+      "5"
+    ],
+    "43": [
+      "B",
+      "4"
+    ],
+    "44": [
+      "D",
+      "4"
+    ],
+    "45": [
+      "D",
+      "5"
+    ],
+    "46": [
+      "G",
+      "5"
+    ],
+    "47": [
+      "E",
+      "5"
+    ],
+    "48": [
+      "F",
+      "5"
+    ],
+    "49": [
+      "A",
+      "5"
+    ],
+    "50": [
+      "G",
+      "5"
+    ],
+    "51": [
+      "F",
+      "5"
+    ],
+    "52": [
+      "A",
+      "5"
+    ],
+    "53": [
+      "F",
+      "5"
+    ],
+    "54": [
+      "G",
+      "5"
+    ],
+    "55": [
+      "A",
+      "5"
+    ],
+    "56": [
+      "E",
+      "5"
+    ],
+    "57": [
+      "A",
+      "5"
+    ],
+    "58": [
+      "A",
+      "5"
+    ],
+    "59": [
+      "F",
+      "5"
+    ],
+    "60": [
+      "E",
+      "5"
+    ],
+    "61": [
+      "C",
+      "5"
+    ],
+    "62": [
+      "E",
+      "5"
+    ],
+    "63": [
+      "E",
+      "5"
+    ],
+    "64": [
+      "C",
+      "5"
+    ],
+    "65": [
+      "E",
+      "5"
+    ],
+    "66": [
+      "A",
+      "5"
+    ]
+  },
+  "percussion_names": {
+    "35": "Acoustic Bass Drum",
+    "36": "Bass Drum 1",
+    "37": "Side Stick",
+    "38": "Acoustic Snare",
+    "39": "Hand Clap",
+    "40": "Electric Snare",
+    "41": "Low Floor Tom",
+    "42": "Closed Hi-Hat",
+    "43": "High Floor Tom",
+    "44": "Pedal Hi-Hat",
+    "45": "Low Tom",
+    "46": "Open Hi-Hat",
+    "47": "Low-Mid Tom",
+    "48": "Hi-Mid Tom",
+    "49": "Crash Cymbal 1",
+    "50": "High Tom",
+    "51": "Ride Cymbal 1",
+    "52": "Chinese Cymbal",
+    "53": "Ride Bell",
+    "54": "Tambourine",
+    "55": "Splash Cymbal",
+    "56": "Cowbell",
+    "57": "Crash Cymbal 2",
+    "58": "Vibraslap",
+    "59": "Ride Cymbal 2",
+    "60": "Hi Bongo",
+    "61": "Low Bongo",
+    "62": "Mute Hi Conga",
+    "63": "Open Hi Conga",
+    "64": "Low Conga",
+    "65": "High Timbale",
+    "66": "Low Timbale",
+    "67": "High Agogo",
+    "68": "Low Agogo",
+    "69": "Cabasa",
+    "70": "Maracas",
+    "71": "Short Whistle",
+    "72": "Long Whistle",
+    "73": "Short Guiro",
+    "74": "Long Guiro",
+    "75": "Claves",
+    "76": "Hi Wood Block",
+    "77": "Low Wood Block",
+    "78": "Mute Cuica",
+    "79": "Open Cuica",
+    "80": "Mute Triangle",
+    "81": "Open Triangle"
+  }
+}

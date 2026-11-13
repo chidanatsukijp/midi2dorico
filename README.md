@@ -111,6 +111,7 @@ track names.
 | `glissando_max_step_semitones` | Largest step allowed inside a glissando sweep (`24` keeps chord sweeps) |
 | `program_techniques` | Program number → technique text, e.g. `{"45": "pizz.", "44": "trem."}` |
 | `keyswitch_map` | Default keyswitch pitch → technique table (see below) |
+| `beat_grouping` | Beat groups of asymmetric meters, e.g. `{"7/8": [2, 2, 3]}` |
 
 ### Track-level options
 
@@ -218,6 +219,7 @@ skipped, so a fresh clone only needs the built-in test material.
 | `python render_musicxml.py score.musicxml page.png` | Single-page PNG preview |
 | `python preview_part.py score.musicxml "Violin I" 1 8` | Render one part, measures 1–8, to PNG |
 | `python main.py --interactive ...` | Ask per track what the names, transpositions and keyswitches mean, then convert |
+| `data/gm.json` | GM percussion names, noteheads and instrument programs — edit without touching Python |
 
 The rendering helpers need the optional dependencies:
 `pip install -r requirements-render.txt`.

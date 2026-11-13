@@ -19,6 +19,8 @@ from typing import Dict, List, Tuple
 import mido
 
 from models import Note, Score, Track
+from measure_grid import build_measure_map, measure_index
+from techniques import attach_technique_directions
 from config_schema import ScoreEngravingConfig, TrackEngravingRule
 
 
@@ -324,25 +326,6 @@ def apply_pitch_transforms(track: Track) -> None:
             n.pitch = track.pitch_remap[n.pitch]
 
 
-def attach_technique_directions(track: Track,
-                                program_techniques: Optional[Dict[str, str]] = None) -> None:
-    """Turn program changes into technique texts (pizz. / arco / trem. ...)."""
-    if not program_techniques:
-        return
-    if getattr(track, "_techniques_attached", False):
-        return
-    for beat, prog in sorted(track.program_changes):
-        text = program_techniques.get(str(prog))
-        if not text:
-            continue
-        # An initial "arco" is the default and needs no marking, but a piece that
-        # starts pizzicato must say so.
-        if beat < 1e-9 and text.strip().lower() in ("arco", "ord.", "ordinario"):
-            continue
-        track.directions.append((beat, text))
-    track._techniques_attached = True
-
-
 def merge_tracks_by_group(score: Score,
                           program_techniques: Optional[Dict[str, str]] = None) -> None:
     """Fold tracks that share a merge_group_id into a single processing unit.
@@ -382,43 +365,6 @@ def merge_tracks_by_group(score: Score,
         merged.append(base)
 
     score.tracks = merged
-
-
-def build_measure_map(score: Score) -> List[Tuple[float, int, int]]:
-    """Build the ordered list of measures as (start_beat, numerator, denominator)."""
-    total = max((n.end for t in score.tracks for n in t.notes), default=0.0)
-    sigs = sorted(score.time_sigs)
-    if not sigs:
-        sigs = [(0.0, score.time_sig_beats, score.time_sig_beat_type)]
-    if sigs[0][0] > 1e-9:
-        sigs = [(0.0, score.time_sig_beats, score.time_sig_beat_type)] + sigs
-
-    measures: List[Tuple[float, int, int]] = []
-    beat = 0.0
-    while beat < total - 1e-9:
-        num, den = sigs[0][1], sigs[0][2]
-        for b, n, d in sigs:
-            if b <= beat + 1e-9:
-                num, den = n, d
-            else:
-                break
-        measures.append((beat, num, den))
-        beat += num * 4.0 / den
-        if num <= 0 or den <= 0 or len(measures) > 10000:
-            break
-    if not measures:
-        measures = [(0.0, score.time_sig_beats, score.time_sig_beat_type)]
-    return measures
-
-
-def measure_index(beat: float, measures: List[Tuple[float, int, int]]) -> int:
-    idx = 0
-    for i, (b, _, _) in enumerate(measures):
-        if b <= beat + 1e-9:
-            idx = i
-        else:
-            break
-    return idx
 
 
 def suggest_timpani_pitches(score: Score) -> Dict[int, int]:

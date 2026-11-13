@@ -98,6 +98,12 @@ class ScoreEngravingConfig(BaseModel):
                     "means in this DAW, e.g. {'45': 'pizz.', '44': 'trem.'}. The text is "
                     "written as a direction when that program is switched on.",
     )
+    beat_grouping: Dict[str, List[int]] = Field(
+        default_factory=lambda: {"5/8": [3, 2], "7/8": [2, 2, 3]},
+        description="How asymmetric meters group their beats, as 'n/d' -> list of "
+                    "group sizes. Rests break at group boundaries instead of the bar "
+                    "midpoint, so 7/8 is spelled 2+2+3 rather than 4+3.",
+    )
     glissando_max_step_semitones: int = Field(
         default=24,
         description="Largest interval (semitones) allowed between adjacent notes of a "

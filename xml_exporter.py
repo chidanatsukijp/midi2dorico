@@ -1,7 +1,9 @@
 """Build a multi-part score-partwise MusicXML 4.0 full score for Dorico."""
 from __future__ import annotations
 
+import json
 import math
+import os
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -10,17 +12,16 @@ from typing import Dict, List, Optional, Tuple
 from models import Note, Score, Track
 from config_schema import ScoreEngravingConfig
 from harp_solver import DEFAULT_SHARP_SPELLING, DEFAULT_FLAT_SPELLING, STEP_SEMITONE
-from midi_inspector import build_measure_map, measure_index
+from measure_grid import build_measure_map, measure_index
 
+
+HERE = os.path.dirname(os.path.abspath(__file__))
 
 DIVISIONS = 1680
 
 #: Rest spelling style, set from the engraving config at export time.
 _REST_STYLE = {"style": "standard"}  # quarter = 1680; 16th = 420; 32nd = 210; 64th = 105; divisible by 3/5/7/16
 
-INSTRUMENT_ORDER = {"strings": 0, "winds": 1, "brass": 2, "piano": 3, "harp": 4, "percussion": 5, "other": 6}
-
-MIDI_PROGRAMS = {"strings": 48, "winds": 73, "brass": 61, "piano": 0, "harp": 46, "percussion": 0, "other": 0}
 
 
 @dataclass
@@ -101,22 +102,21 @@ def _unpitched_display(pitch: int, staff_lines: int) -> Tuple[str, str]:
     return GM_PERCUSSION_DISPLAY.get(pitch, ("A", "5"))
 
 
-#: GM percussion instrument names, used for <score-instrument> so that the
-#: notation software maps each drum to a real instrument instead of guessing.
-GM_PERCUSSION_NAMES: Dict[int, str] = {
-    35: "Acoustic Bass Drum", 36: "Bass Drum 1", 37: "Side Stick", 38: "Acoustic Snare",
-    39: "Hand Clap", 40: "Electric Snare", 41: "Low Floor Tom", 42: "Closed Hi-Hat",
-    43: "High Floor Tom", 44: "Pedal Hi-Hat", 45: "Low Tom", 46: "Open Hi-Hat",
-    47: "Low-Mid Tom", 48: "Hi-Mid Tom", 49: "Crash Cymbal 1", 50: "High Tom",
-    51: "Ride Cymbal 1", 52: "Chinese Cymbal", 53: "Ride Bell", 54: "Tambourine",
-    55: "Splash Cymbal", 56: "Cowbell", 57: "Crash Cymbal 2", 58: "Vibraslap",
-    59: "Ride Cymbal 2", 60: "Hi Bongo", 61: "Low Bongo", 62: "Mute Hi Conga",
-    63: "Open Hi Conga", 64: "Low Conga", 65: "High Timbale", 66: "Low Timbale",
-    67: "High Agogo", 68: "Low Agogo", 69: "Cabasa", 70: "Maracas",
-    71: "Short Whistle", 72: "Long Whistle", 73: "Short Guiro", 74: "Long Guiro",
-    75: "Claves", 76: "Hi Wood Block", 77: "Low Wood Block", 78: "Mute Cuica",
-    79: "Open Cuica", 80: "Mute Triangle", 81: "Open Triangle",
-}
+def _load_gm_tables() -> Tuple[Dict[str, int], Dict[str, int], Dict[int, Tuple[str, str]],
+                               Dict[int, str], Dict[int, str]]:
+    """Instrument/program/percussion tables live in data/gm.json so they can be
+    adapted without editing Python."""
+    path = os.path.join(HERE, "data", "gm.json")
+    with open(path, encoding="utf-8-sig") as f:
+        d = json.load(f)
+    display = {int(k): (str(v[0]), str(v[1])) for k, v in d["percussion_display"].items()}
+    noteheads = {int(k): v for k, v in d["noteheads"].items()}
+    names = {int(k): v for k, v in d["percussion_names"].items()}
+    return d["instrument_order"], d["midi_programs"], display, noteheads, names
+
+
+INSTRUMENT_ORDER, MIDI_PROGRAMS, GM_PERCUSSION_DISPLAY, GM_NOTEHEAD, GM_PERCUSSION_NAMES = \
+    _load_gm_tables()
 
 
 @dataclass
@@ -799,14 +799,42 @@ def _quarter_only_split(total: float):
     return out
 
 
+def _measure_boundaries(num: int, den: int, measure_len: float,
+                        grouping: Optional[Dict[str, List[int]]]) -> Optional[List[float]]:
+    """Group boundaries (in beats) of an asymmetric meter, e.g. 7/8 "2+2+3"."""
+    groups = (grouping or {}).get(f"{num}/{den}")
+    if not groups or sum(groups) != num:
+        return None
+    unit = 4.0 / den
+    out: List[float] = []
+    acc = 0.0
+    for g in groups[:-1]:
+        acc += g * unit
+        if 1e-9 < acc < measure_len - 1e-9:
+            out.append(acc)
+    return out or None
+
+
 def _decompose_rest(beats: float, start: float,
-                    measure_len: Optional[float] = None) -> List[Tuple[float, str, bool, Optional[Tuple[int, int]]]]:
+                    measure_len: Optional[float] = None,
+                    boundaries: Optional[List[float]] = None) -> List[Tuple[float, str, bool, Optional[Tuple[int, int]]]]:
     """Split a rest at beat boundaries, shortest piece first.
 
     A 1.25-beat rest beginning at beat 2.75 becomes "16th + quarter" (short piece
     on the beat's tail, then the full beat) instead of "quarter + 16th", which is
     the standard, beat-aligned engraving convention.
     """
+    # Asymmetric meters: break at the declared beat groups (5/8 = 3+2, 7/8 = 2+2+3).
+    if boundaries:
+        cuts = [b for b in boundaries if start + 1e-9 < b < start + beats - 1e-9]
+        if cuts:
+            parts: List[Tuple[float, str, bool, Optional[Tuple[int, int]]]] = []
+            cursor = start
+            for b in cuts + [start + beats]:
+                parts += _decompose_rest_segment(b - cursor, cursor)
+                cursor = b
+            return parts
+
     if _REST_STYLE.get("style") == "merged":
         single = _type_from_beats(beats)
         if single[0] is not None:
@@ -864,7 +892,8 @@ def _decompose_rest_segment(beats: float, start: float) -> List[Tuple[float, str
 
 
 def _emit_piece(parent: ET.Element, piece: Piece, unpitched: bool = False, staff_lines: int = 5,
-                part_id: str = "", measure_len: Optional[float] = None) -> None:
+                part_id: str = "", measure_len: Optional[float] = None,
+                boundaries: Optional[List[float]] = None) -> None:
     """Emit a piece as one or several notes/rests.
 
     Non-standard durations are decomposed into tied notes (or, for rests, into a
@@ -876,7 +905,8 @@ def _emit_piece(parent: ET.Element, piece: Piece, unpitched: bool = False, staff
             # into one rest per beat).
             _note_element(parent, piece, unpitched, staff_lines, part_id)
             return
-        for bv, _t, _d, _tmod in _decompose_rest(piece.duration, piece.start, measure_len):
+        for bv, _t, _d, _tmod in _decompose_rest(piece.duration, piece.start, measure_len,
+                                                 boundaries):
             sub = Piece(start=piece.start, duration=bv, is_rest=True, voice=piece.voice, staff=piece.staff)
             _note_element(parent, sub, unpitched, staff_lines, part_id)
         return
@@ -1102,7 +1132,8 @@ def _add_tuplet_brackets(measure: ET.Element) -> None:
 
 def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], key_fifths: int,
                    pieces_map: Dict[int, List[Piece]],
-                   tempos: Optional[List[Tuple[float, float]]] = None) -> ET.Element:
+                   tempos: Optional[List[Tuple[float, float]]] = None,
+                   grouping: Optional[Dict[str, List[int]]] = None) -> ET.Element:
     measure = ET.Element("measure", number=str(m + 1))
     m_start, num, den = measures[m]
     m_len = num * 4.0 / den
@@ -1179,12 +1210,14 @@ def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], k
             _harp_pedal_direction(measure, state, int(round((beat - m_start) * DIVISIONS)))
 
     all_pieces = pieces_map.get(m, [])
+    bounds = _measure_boundaries(num, den, m_len, grouping)
     backup_dur = str(round(m_len * DIVISIONS))
 
     def _emit_voice(pieces: List[Piece], voice: int, staff_no: int,
                     perc: bool = False) -> None:
         for p in _fill_staff(pieces, m_len, voice, staff_no, percussion=perc):
-            _emit_piece(measure, p, part.unpitched, part.staff_lines, part.part_id, m_len)
+            _emit_piece(measure, p, part.unpitched, part.staff_lines, part.part_id,
+                        m_len, bounds)
 
     def _backup() -> None:
         b = ET.SubElement(measure, "backup")
@@ -1208,7 +1241,7 @@ def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], k
         lower = [p for p in all_pieces if not p.is_rest and _is_foot(p.pitch)]
         def _emit_drum(pieces: List[Piece], voice: int) -> None:
             for p in _fill_staff(pieces, m_len, voice, 0, beat_beaming=True, percussion=True):
-                _emit_piece(measure, p, True, part.staff_lines, part.part_id, m_len)
+                _emit_piece(measure, p, True, part.staff_lines, part.part_id, m_len, bounds)
 
         if not upper and not lower:
             # Silent bar: a single whole-measure rest in one voice only.
@@ -1237,7 +1270,7 @@ def build_musicxml(score: Score, config: ScoreEngravingConfig) -> str:
     # Turn program changes into technique texts here as well, so calling
     # build_musicxml() directly (as a library, without main.run) does not silently
     # lose pizz./arco markings. Idempotent: merge_tracks_by_group already did it.
-    from midi_inspector import attach_technique_directions
+    from techniques import attach_technique_directions
     for track in score.tracks:
         attach_technique_directions(track, getattr(config, "program_techniques", {}))
         track.directions.sort(key=lambda d: d[0])
@@ -1316,7 +1349,8 @@ def build_musicxml(score: Score, config: ScoreEngravingConfig) -> str:
         pieces_map = _split_to_pieces(part, measures)
         tempos = score.tempos if part_idx == 0 else []
         for m in range(len(measures)):
-            part_el.append(_build_measure(part, m, measures, score.key_fifths, pieces_map, tempos))
+            part_el.append(_build_measure(part, m, measures, score.key_fifths, pieces_map,
+                                          tempos, getattr(config, "beat_grouping", None)))
 
     ET.indent(root, space="  ")
     body = ET.tostring(root, encoding="unicode")

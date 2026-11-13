@@ -50,7 +50,10 @@ All three must be clean. If you touched timing logic, also run
 
 | Concern | Module |
 |---|---|
-| MIDI parsing, config application, measure grid | `midi_inspector.py` |
+| MIDI parsing, config application | `midi_inspector.py` |
+| Bar grid | `measure_grid.py` |
+| Program change → technique text | `techniques.py` |
+| GM instrument / percussion tables | `data/gm.json` |
 | Timing/quantization/clean-up stages | `timing_cleaner.py` |
 | Grand-staff split (Viterbi), harp pedals | `grand_staff_splitter.py`, `harp_solver.py` |
 | MusicXML serialization | `xml_exporter.py` |

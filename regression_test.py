@@ -204,6 +204,37 @@ def test_profiles() -> str:
     return "2 blocks, 1 pattern"
 
 
+
+def test_beat_grouping() -> str:
+    """Asymmetric meters break rests at the declared beat groups."""
+    grouping = {"5/8": [3, 2], "7/8": [2, 2, 3]}
+    eq(XE._measure_boundaries(7, 8, 3.5, grouping), [1.0, 2.0], "7/8 boundaries")
+    eq(XE._measure_boundaries(5, 8, 2.5, grouping), [1.5], "5/8 boundaries")
+    eq(XE._measure_boundaries(4, 4, 4.0, grouping), None, "4/4 keeps the midpoint rule")
+
+    eq([p[0] for p in XE._decompose_rest(3.5, 0.0, 3.5, [1.0, 2.0])],
+       [1.0, 1.0, 1.5], "7/8 spelled 2+2+3")
+    eq([p[0] for p in XE._decompose_rest(2.5, 0.0, 2.5, [1.5])],
+       [1.5, 1.0], "5/8 spelled 3+2")
+
+    # a 7/8 bar whose only note is the first eighth: everything else is rests
+    track = Track(index=0, name="Vln", part_name="Vln", instrument_type="strings",
+                  min_playable_pitch=21)
+    track.notes = [Note(pitch=60, start=0.0, end=0.5)]
+    score = Score(tracks=[track], title="t", ticks_per_beat=480,
+                  time_sigs=[(0.0, 7, 8)], key_fifths=0)
+    xml = XE.build_musicxml(score, ScoreEngravingConfig(title="t",
+                                                        beat_grouping=grouping))
+    root = ET.fromstring(xml.encode("utf-8"))
+    m = root.find("part/measure")
+    durations = [int(n.find("duration").text) for n in m.findall("note")]
+    total = 0
+    for n in m.findall("note"):
+        total += int(n.find("duration").text)
+    eq(total, int(3.5 * DIVISIONS), "7/8 measure adds up")
+    return "5/8 3+2, 7/8 2+2+3"
+
+
 def measure_lengths(root) -> dict:
     """(part_id, measure_number) -> expected divisions, following <time> changes."""
     out = {}
@@ -332,6 +363,7 @@ def main() -> int:
     check("merge before cleanup", test_merge_before_cleanup)
     check("keyswitch map is configurable", test_keyswitch_map)
     check("library profiles", test_profiles)
+    check("beat grouping", test_beat_grouping)
 
     print("integration")
     check("end-to-end scores", lambda: test_integration(quick))

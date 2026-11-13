@@ -36,7 +36,9 @@ How a MIDI file becomes a Dorico-ready full score, and where each decision lives
 |---|---|---|
 | `models.py` | `Note`, `Track`, `Score` dataclasses; pure data | import anything from the pipeline |
 | `config_schema.py` | Pydantic `ScoreEngravingConfig` / `TrackEngravingRule` | contain engraving logic |
-| `midi_inspector.py` | MIDI → `Score`, track classification, config application, measure grid, track merging | know about MusicXML |
+| `midi_inspector.py` | MIDI → `Score`, track classification, config application, track merging | know about MusicXML |
+| `measure_grid.py` | bar starts and lengths from the time signatures | parse MIDI |
+| `techniques.py` | program changes → technique directions | know about XML |
 | `timing_cleaner.py` | every *timing* decision: quantization, rest merging, staccato, arpeggio collapse, keyswitches, VST delay | emit XML |
 | `grand_staff_splitter.py` | assign notes to staff 1/2 (Viterbi) | touch timing |
 | `harp_solver.py` | 7-pedal search, enharmonic respelling, `<harp-pedals>` data | touch timing |
@@ -80,22 +82,25 @@ direct `build_musicxml` call produce the same directions.
 | Change glissando detection | `glissando_max_step_semitones` |
 | Add a notation rule | `audit_notation.py` + a regression check |
 
-## Known coupling and deferred work
+## Known limitations
 
-These are known and deliberately not fixed yet — each is a separate, testable
-change:
-
-1. **`xml_exporter` imports the measure grid from `midi_inspector`**
-   (`build_measure_map`, `measure_index`). The grid is really a domain concept;
-   moving it to its own module would let the exporter depend only on `models`.
-2. **GM instrument / percussion tables are hardcoded** in `xml_exporter.py`
-   (`MIDI_PROGRAMS`, `GM_PERCUSSION_DISPLAY`, `GM_NOTEHEAD`). They belong in a
-   data file once someone needs to override them.
-3. **Asymmetric meters** (5/8, 7/8, 11/16) are split by the same midpoint rule as
-   symmetric ones. The result is legal and close (`5/8 → 3+2`), but it does not
-   follow a *declared* beat grouping (`7/8 → 2+2+3`). Fixing this needs a
-   per-meter grouping table and the meter threaded into `_decompose_rest`.
-4. **Track classification is English-only regex.** Non-English track names fall
-   back to `other` and now log a warning; a profile can override them.
-5. **Two voices per staff maximum.** A third simultaneous line is folded into the
+1. **Instruments are classified by English track names.** Non-English names fall
+   back to `other` and log a warning; a profile `tracks` pattern can override them.
+2. **Two voices per staff maximum.** A third simultaneous line is folded into the
    busiest voice rather than rejected.
+3. **`beat_grouping` only covers meters you declare.** Defaults are 5/8 = 3+2 and
+   7/8 = 2+2+3; add e.g. `"11/16": [3, 2, 3, 3]` for anything else. Undeclared
+   asymmetric meters keep the generic midpoint rule.
+4. **`<part-abbreviation>` is not emitted**, so preview renderers that reserve the
+   full part-name column leave a wide left margin from page 2 on. Dorico handles
+   this itself.
+
+## History of this document
+
+Decoupling work completed after the first architecture review:
+
+- the measure grid and the technique mapping moved out of `midi_inspector.py`
+  (`measure_grid.py`, `techniques.py`), so `xml_exporter.py` no longer imports the
+  MIDI layer at all;
+- the GM instrument/percussion tables moved to `data/gm.json`;
+- asymmetric meters now break rests at declared beat groups.

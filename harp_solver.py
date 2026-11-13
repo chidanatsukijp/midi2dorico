@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Tuple
 from models import Note, Track
 from pitch_theory import (DEFAULT_FLAT_SPELLING, DEFAULT_SHARP_SPELLING,  # noqa: F401
                           HARP_STEPS as STEPS, PC_SPELLINGS, STEP_SEMITONE)
-from midi_inspector import measure_index
+from measure_grid import measure_index
 
 
 def _idx_to_state(idx: int) -> Dict[str, int]:

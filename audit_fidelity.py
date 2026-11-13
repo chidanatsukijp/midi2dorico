@@ -6,7 +6,6 @@ closest onset, then report onset error, duration delta, dropped and added notes.
 from __future__ import annotations
 
 import bisect
-import json
 import os
 import sys
 
@@ -15,9 +14,9 @@ sys.path.insert(0, HERE)
 
 import grand_staff_splitter
 import harp_solver
+import measure_grid
 import midi_inspector
 import timing_cleaner
-from config_schema import ScoreEngravingConfig
 
 TOL = 1e-6
 EXACT = 1e-6
@@ -35,7 +34,7 @@ def run(mid: str, cfg_path: str = None, profile_path: str = None):
     cfg = pipeline.build_config(score, cfg_path, profile_path)
     midi_inspector.apply_config(score, cfg)
     raw = snapshot(score.tracks)
-    measures = midi_inspector.build_measure_map(score)
+    measures = measure_grid.build_measure_map(score)
     for track in score.tracks:
         midi_inspector.apply_pitch_transforms(track)
         timing_cleaner.process_track(track, cfg, measures)

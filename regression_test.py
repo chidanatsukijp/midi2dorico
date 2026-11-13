@@ -227,7 +227,6 @@ def test_beat_grouping() -> str:
                                                         beat_grouping=grouping))
     root = ET.fromstring(xml.encode("utf-8"))
     m = root.find("part/measure")
-    durations = [int(n.find("duration").text) for n in m.findall("note")]
     total = 0
     for n in m.findall("note"):
         total += int(n.find("duration").text)

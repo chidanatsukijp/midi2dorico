@@ -12,7 +12,6 @@ from __future__ import annotations
 import json
 from typing import Dict, List
 
-from models import Score
 from config_schema import ScoreEngravingConfig, TrackEngravingRule
 from midi_inspector import (
     build_default_config,

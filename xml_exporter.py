@@ -9,24 +9,18 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from models import ONSET_EPS, Note, Score, Track, group_by_onset
+from models import ONSET_EPS, Note, Score, group_by_onset
 from config_schema import ScoreEngravingConfig
-from pitch_theory import STEP_SEMITONE, octave_of, spell_note
+from pitch_theory import octave_of, spell_note
 from measure_grid import build_measure_map, measure_index
 
-from notation_values import (DIVISIONS, STANDARD_DURATIONS, _REST_STYLE,
-                              _BIG_REST_VALUES, _decompose_duration,
-                              _decompose_rest, _decompose_rest_segment,
-                              _measure_boundaries, _nearest_type,
-                              _quarter_only_split, _type_from_beats)
+from notation_values import (DIVISIONS, _REST_STYLE, _decompose_duration,
+                              _decompose_rest, _measure_boundaries,
+                              _nearest_type, _type_from_beats)
 from directions import (_add_tuplet_brackets, _direction_words, _dynamic_direction,
                         _harp_pedal_direction, _plan_dynamics, _tempo_direction)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-
-
-#: Rest spelling style, set from the engraving config at export time.
-
 
 
 @dataclass

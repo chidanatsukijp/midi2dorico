@@ -9,10 +9,9 @@ import `open_score()` / `page_svg()` instead of re-implementing it.
 from __future__ import annotations
 
 import copy
-import io
 import sys
 import xml.etree.ElementTree as ET
-from typing import Iterable, Tuple
+from typing import Tuple
 
 import pymupdf
 import verovio

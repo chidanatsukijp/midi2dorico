@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 
+import measure_grid
 import midi_inspector
 import profiles
 import timing_cleaner
@@ -79,7 +80,7 @@ def run(input_path: str, output_path: str, config_path: str = None, manifest_pat
         with open(manifest_path, "w", encoding="utf-8") as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)
 
-    measures = midi_inspector.build_measure_map(score)
+    measures = measure_grid.build_measure_map(score)
     for track in score.tracks:
         midi_inspector.apply_pitch_transforms(track)
         timing_cleaner.process_track(track, config, measures)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 import statistics
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from models import Note, Track
 from config_schema import ScoreEngravingConfig

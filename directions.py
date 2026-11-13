@@ -2,9 +2,14 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Protocol, Tuple
 
 from notation_values import DIVISIONS
+
+
+class _DynamicsTarget(Protocol):
+    notes: list
+    dynamic_marks: list
 
 
 def _direction_words(measure: ET.Element, text: str, offset: Optional[int] = None) -> None:
@@ -24,7 +29,7 @@ def _tempo_direction(measure: ET.Element, bpm: float) -> None:
     ET.SubElement(d, "sound", tempo=str(int(round(bpm))))
 
 
-def _plan_dynamics(part: Part) -> None:
+def _plan_dynamics(part: _DynamicsTarget) -> None:
     """Derive a small number of dynamic markings from MIDI velocity.
 
     Velocity is smoothed with a 4-beat median window; a level is only printed when

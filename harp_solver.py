@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
 
 from models import Note, Track
-from pitch_theory import (DEFAULT_FLAT_SPELLING, DEFAULT_SHARP_SPELLING,  # noqa: F401
+from pitch_theory import (DEFAULT_SHARP_SPELLING,  # noqa: F401 (re-exported)
                           HARP_STEPS as STEPS, PC_SPELLINGS, STEP_SEMITONE)
 from measure_grid import measure_index
 

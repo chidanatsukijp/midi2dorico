@@ -14,13 +14,12 @@ import re
 from collections import OrderedDict
 import statistics
 from collections import Counter
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import mido
 
 from models import Note, Score, Track
 from pitch_theory import KEY_TO_FIFTHS
-from measure_grid import build_measure_map, measure_index
 from techniques import attach_technique_directions
 from config_schema import ScoreEngravingConfig, TrackEngravingRule
 

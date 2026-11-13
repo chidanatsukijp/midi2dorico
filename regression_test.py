@@ -235,6 +235,48 @@ def test_beat_grouping() -> str:
     return "5/8 3+2, 7/8 2+2+3"
 
 
+
+def test_abbreviations_and_percussion_voices() -> str:
+    """Long part names get an abbreviation; a drum kit may use three voices."""
+    # -- abbreviation table
+    cases = {"Flute / Piccolo": "Fl.", "Trumpet in Bb / Flugelhorn": "Tpt.",
+             "Violin II": "Vln. II", "Horn in F 1": "Hn.",
+             "Percussion (Triangle, Bass Drum, Snare Drum)": "Perc."}
+    for name, want in cases.items():
+        eq(XE._abbreviation(name), want, f"abbreviation({name})")
+
+    # -- it reaches the XML
+    t = Track(index=0, name="Percussion (Triangle, Bass Drum)", part_name="Percussion (Triangle, Bass Drum)",
+              instrument_type="percussion", unpitched=True, staff_lines=5, min_playable_pitch=0)
+    t.notes = [Note(pitch=36, start=0.0, end=0.5)]
+    root = ET.fromstring(build([t]).encode("utf-8"))
+    abbr = root.find("part-list/score-part/part-abbreviation")
+    eq(abbr.text if abbr is not None else None, "Perc.", "<part-abbreviation> emitted")
+
+    # -- three simultaneous drum lines: ride eighths, snare roll, bass drum
+    kit = Track(index=0, name="Drum kit", part_name="Drum kit", instrument_type="percussion",
+                unpitched=True, staff_lines=5, min_playable_pitch=0)
+    kit.notes = []
+    for i in range(8):
+        kit.notes.append(Note(pitch=51, start=i * 0.5, end=i * 0.5 + 0.5))       # ride
+    for i in range(8):
+        kit.notes.append(Note(pitch=38, start=i * 0.5 + 0.25, end=i * 0.5 + 0.4))  # snare roll
+    for i in range(4):
+        kit.notes.append(Note(pitch=36, start=i * 1.0, end=i * 1.0 + 0.5))       # kick
+    root = ET.fromstring(build([kit]).encode("utf-8"))
+    m = root.find("part/measure")
+    voices = {v.text for v in m.findall("note/voice")}
+    eq(voices, {"1", "2", "3"}, "three drum voices")
+    eq(len(m.findall("backup")), 2, "two backups for three voices")
+    per_voice = {}
+    for n in m.findall("note"):
+        v = n.find("voice").text
+        per_voice[v] = per_voice.get(v, 0) + int(n.find("duration").text)
+    for v, total in per_voice.items():
+        eq(total, 4 * DIVISIONS, f"voice {v} fills the bar")
+    return "5 abbreviations, 3-voice kit"
+
+
 def measure_lengths(root) -> dict:
     """(part_id, measure_number) -> expected divisions, following <time> changes."""
     out = {}
@@ -364,6 +406,7 @@ def main() -> int:
     check("keyswitch map is configurable", test_keyswitch_map)
     check("library profiles", test_profiles)
     check("beat grouping", test_beat_grouping)
+    check("abbreviations + 3-voice kit", test_abbreviations_and_percussion_voices)
 
     print("integration")
     check("end-to-end scores", lambda: test_integration(quick))

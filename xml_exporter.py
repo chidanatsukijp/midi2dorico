@@ -272,6 +272,38 @@ def _spell_note(n: Note, flat: bool = False) -> None:
         n.octave = round((n.pitch - STEP_SEMITONE[step] - alter) / 12) - 1
 
 
+ABBREVIATIONS = [
+    # specific first where one name contains another ("flugelhorn" / "horn",
+    # "violin ii" / "violin i"); the earliest match in the name wins.
+    ("violin ii", "Vln. II"), ("violin i", "Vln. I"), ("violin", "Vln."),
+    ("viola", "Vla."), ("violoncello", "Vc."), ("cello", "Vc."), ("double bass", "Db."),
+    ("trumpet", "Tpt."), ("flugelhorn", "Flug."),
+    ("bass trombone", "B. Tbn."), ("trombone", "Tbn."),
+    ("bassoon", "Bsn."), ("clarinet", "Cl."), ("oboe", "Ob."),
+    ("piccolo", "Picc."), ("flute", "Fl."),
+    ("horn", "Hn."), ("tuba", "Tb."), ("euphonium", "Euph."),
+    ("timpani", "Timp."), ("percussion", "Perc."), ("harp", "Hp."),
+    ("piano", "Pno."), ("celesta", "Cel."), ("organ", "Org."),
+]
+
+
+def _abbreviation(part_name: str) -> str:
+    """Short form shown at the start of later systems, so a long part name does
+    not eat the left margin."""
+    key = (part_name or "").strip().lower()
+    best = None
+    for needle, abbr in ABBREVIATIONS:
+        idx = key.find(needle)
+        if idx != -1 and (best is None or idx < best[0]):
+            best = (idx, abbr)
+    if best is not None:
+        return best[1]
+    if len(key) > 12:
+        first = key.split()[0][:6]
+        return first[:1].upper() + first[1:] + "."
+    return ""
+
+
 def _group_parts(score: Score, score_order: str = "track",
                  program_techniques: Optional[Dict[str, str]] = None) -> List[Part]:
     groups: Dict[str, Part] = {}
@@ -1239,21 +1271,30 @@ def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], k
         # importer never invents any.
         upper = [p for p in all_pieces if not p.is_rest and not _is_foot(p.pitch)]
         lower = [p for p in all_pieces if not p.is_rest and _is_foot(p.pitch)]
+
         def _emit_drum(pieces: List[Piece], voice: int) -> None:
             for p in _fill_staff(pieces, m_len, voice, 0, beat_beaming=True, percussion=True):
                 _emit_piece(measure, p, True, part.staff_lines, part.part_id, m_len, bounds)
 
-        if not upper and not lower:
+        # Hands can hold two independent lines (e.g. a ride pattern under a snare
+        # roll). Split them the same way a pitched staff is split, and keep the
+        # feet as their own down-stem voice.
+        hands_a, hands_b = _split_voices(upper)
+
+        voices = [(hands_a, 1)]
+        if lower:
+            voices.append((lower, 2))
+        if hands_b:
+            voices.append((hands_b, 3))
+
+        if not any(pieces for pieces, _ in voices):
             # Silent bar: a single whole-measure rest in one voice only.
             _emit_drum([], 1)
-        elif upper and not lower:
-            _emit_drum(upper, 1)
-        elif lower and not upper:
-            _emit_drum(lower, 2)
         else:
-            _emit_drum(upper, 1)
-            _backup()
-            _emit_drum(lower, 2)
+            for idx, (pieces, voice) in enumerate(voices):
+                if idx:
+                    _backup()
+                _emit_drum(pieces, voice)
     else:
         v1, v2 = _split_voices(all_pieces)
         _emit_voice(v1, 1, 0, part.unpitched)
@@ -1300,6 +1341,9 @@ def build_musicxml(score: Score, config: ScoreEngravingConfig) -> str:
     for part in parts:
         sp = ET.SubElement(part_list, "score-part", id=part.part_id)
         ET.SubElement(sp, "part-name").text = part.part_name
+        abbr = _abbreviation(part.part_name)
+        if abbr:
+            ET.SubElement(sp, "part-abbreviation").text = abbr
         if part.unpitched:
             # MusicXML requires ALL <score-instrument> elements before any
             # <midi-instrument>, so build them in two passes.

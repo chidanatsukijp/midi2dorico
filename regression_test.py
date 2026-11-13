@@ -241,8 +241,10 @@ def test_abbreviations_and_percussion_voices() -> str:
     cases = {"Flute / Piccolo": "Fl.", "Trumpet in Bb / Flugelhorn": "Tpt.",
              "Violin II": "Vln. II", "Horn in F 1": "Hn.",
              "Percussion (Triangle, Bass Drum, Snare Drum)": "Perc."}
+    from part_catalog import _abbreviation
+
     for name, want in cases.items():
-        eq(XE._abbreviation(name), want, f"abbreviation({name})")
+        eq(_abbreviation(name), want, f"abbreviation({name})")
 
     # -- it reaches the XML
     t = Track(index=0, name="Percussion (Triangle, Bass Drum)", part_name="Percussion (Triangle, Bass Drum)",

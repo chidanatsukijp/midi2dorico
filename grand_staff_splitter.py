@@ -5,18 +5,16 @@ hand-span, voice-crossing, register priors, and horizontal smoothness.
 """
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import List, Optional, Tuple
 
-from models import Note, Track
+from models import Note, Track, group_by_onset
 
 
 def _frame_notes(notes: List[Note]) -> List[Tuple[float, List[Note]]]:
     """Bucket simultaneous notes (same quantized onset) into frames."""
-    frames = defaultdict(list)
-    for n in notes:
-        frames[round(n.start, 6)].append(n)
-    return [(t, sorted(frames[t], key=lambda n: n.pitch)) for t in sorted(frames)]
+    ordered = sorted(notes, key=lambda n: n.start)
+    return [(g[0].start, sorted(g, key=lambda n: n.pitch))
+            for g in group_by_onset(ordered)]
 
 
 def split_grand_staff(track: Track) -> None:

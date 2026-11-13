@@ -52,6 +52,8 @@ All three must be clean. If you touched timing logic, also run
 |---|---|
 | MIDI parsing, config application | `midi_inspector.py` |
 | Bar grid | `measure_grid.py` |
+| Shared music theory (spellings, keys) | `pitch_theory.py` |
+| Onset grouping (chords, frames) | `models.group_by_onset` |
 | Program change → technique text | `techniques.py` |
 | GM instrument / percussion tables | `data/gm.json` |
 | Timing/quantization/clean-up stages | `timing_cleaner.py` |

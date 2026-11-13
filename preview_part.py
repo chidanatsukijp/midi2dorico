@@ -11,11 +11,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import pymupdf
-import verovio
+from render_musicxml import open_score, page_svg, svg_bytes
 from reportlab.graphics import renderPDF
 from svglib.svglib import svg2rlg
-
-from render_musicxml import _flatten_uses
 
 
 def extract(src: str, out: str, part_name: str, first: int, last: int) -> None:
@@ -46,15 +44,9 @@ def extract(src: str, out: str, part_name: str, first: int, last: int) -> None:
 
 
 def render(src: str, out_png: str, width: int = 2600, scale: int = 70) -> None:
-    tk = verovio.toolkit()
-    tk.loadFile(src)
-    tk.setOptions({
-        "pageWidth": width, "pageHeight": 900, "scale": scale,
-        "adjustPageHeight": True, "footer": "none", "header": "none", "breaks": "none",
-    })
-    root = ET.fromstring(tk.renderToSVG(1))
-    _flatten_uses(root)
-    drawing = svg2rlg(io.BytesIO(ET.tostring(root, encoding="utf-8")))
+    tk, _ = open_score(src, page_width=width, page_height=900, scale=scale,
+                       adjust_page_height=True, breaks="none")
+    drawing = svg2rlg(io.BytesIO(svg_bytes(page_svg(tk, 1))))
     s = 2.2
     drawing.scale(s, s)
     drawing.width *= s

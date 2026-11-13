@@ -61,6 +61,28 @@ class Track:
     harp_pedal_changes: List[Tuple[float, Dict[str, int]]] = field(default_factory=list)  # (beat, {step: alter})
 
 
+ONSET_EPS = 1e-6
+"""Tolerance used everywhere two onsets are considered simultaneous."""
+
+
+def same_onset(a: float, b: float, eps: float = ONSET_EPS) -> bool:
+    return abs(a - b) <= eps
+
+
+def group_by_onset(items, eps: float = ONSET_EPS):
+    """Group objects exposing ``.start`` that share an onset, preserving order.
+
+    The caller is responsible for sorting when the input is not already ordered.
+    """
+    groups = []
+    for item in items:
+        if groups and same_onset(item.start, groups[-1][0].start, eps):
+            groups[-1].append(item)
+        else:
+            groups.append([item])
+    return groups
+
+
 @dataclass
 class Score:
     title: str = "Full Score"

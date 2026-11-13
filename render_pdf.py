@@ -23,9 +23,7 @@ from reportlab.graphics import renderPDF
 from reportlab.pdfgen import canvas as pdfcanvas
 from svglib.svglib import svg2rlg
 
-import verovio
-
-from render_musicxml import _flatten_uses
+from render_musicxml import open_score, page_svg, svg_bytes
 
 PAPER = {"a4": (595, 842), "a3": (842, 1191), "a4l": (842, 595), "a3l": (1191, 842)}
 
@@ -66,26 +64,13 @@ def render_pdf(musicxml: str, out_pdf: str, paper: str = "a4", scale: int = 45,
     src, renames = _preview_copy(musicxml)
     for line in renames:
         print(f"preview: shortened part name  {line}")
-    tk = verovio.toolkit()
-    if not tk.loadFile(src):
-        raise SystemExit(f"verovio could not read {musicxml}")
-    tk.setOptions({
-        "pageWidth": 2100,
-        "pageHeight": 2970,
-        "scale": scale,
-        "adjustPageHeight": False,
-        "breaks": "auto",
-        "footer": "none",
-        "header": "none",
-    })
-    total = tk.getPageCount()
+    tk, total = open_score(src, page_width=2100, page_height=2970, scale=scale,
+                           adjust_page_height=False)
 
     canvas = pdfcanvas.Canvas(out_pdf, pagesize=(pw, ph))
     written = 0
     for pg in range(1, total + 1):
-        root = ET.fromstring(tk.renderToSVG(pg))
-        _flatten_uses(root)
-        drawing = svg2rlg(io.BytesIO(ET.tostring(root, encoding="utf-8")))
+        drawing = svg2rlg(io.BytesIO(svg_bytes(page_svg(tk, pg))))
         if drawing is None:
             continue
         avail_w = pw - 2 * margin

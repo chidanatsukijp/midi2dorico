@@ -19,6 +19,7 @@ from typing import Dict, List, Tuple
 import mido
 
 from models import Note, Score, Track
+from pitch_theory import KEY_TO_FIFTHS
 from measure_grid import build_measure_map, measure_index
 from techniques import attach_technique_directions
 from config_schema import ScoreEngravingConfig, TrackEngravingRule
@@ -102,13 +103,6 @@ def infer_unpitched(name: str, instrument_type: str) -> Tuple[bool, int]:
 
 #: mido's key_signature meta message carries a key NAME (e.g. "Bb", "F#m"),
 #: not a fifths count. Map it to the circle-of-fifths integer.
-KEY_TO_FIFTHS = {
-    "Cb": -7, "Gb": -6, "Db": -5, "Ab": -4, "Eb": -3, "Bb": -2, "F": -1,
-    "C": 0, "G": 1, "D": 2, "A": 3, "E": 4, "B": 5, "F#": 6, "C#": 7,
-    "Abm": -7, "Ebm": -6, "Bbm": -5, "Fm": -4, "Cm": -3, "Gm": -2, "Dm": -1,
-    "Am": 0, "Em": 1, "Bm": 2, "F#m": 3, "C#m": 4, "G#m": 5, "D#m": 6, "A#m": 7,
-}
-
 #: Instruments that sound an octave away from their written pitch. The value is
 #: the written-pitch offset (semitones) applied when the config leaves it at 0.
 OCTAVE_TRANSPOSING = {

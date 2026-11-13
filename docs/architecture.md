@@ -34,7 +34,8 @@ How a MIDI file becomes a Dorico-ready full score, and where each decision lives
 
 | Module | Responsibility | Must not |
 |---|---|---|
-| `models.py` | `Note`, `Track`, `Score` dataclasses; pure data | import anything from the pipeline |
+| `models.py` | `Note`, `Track`, `Score` dataclasses; `group_by_onset` / `same_onset` shared by every stage | import anything from the pipeline |
+| `pitch_theory.py` | pitch classes, spellings, key signatures, harp string order | parse MIDI |
 | `config_schema.py` | Pydantic `ScoreEngravingConfig` / `TrackEngravingRule` | contain engraving logic |
 | `midi_inspector.py` | MIDI → `Score`, track classification, config application, track merging | know about MusicXML |
 | `measure_grid.py` | bar starts and lengths from the time signatures | parse MIDI |

@@ -101,7 +101,7 @@ def detect_and_fix_vst_delay(track: Track, grid: float = 0.25) -> float:
         return 0.0
     errors = [((n.start + grid / 2.0) % grid) - grid / 2.0 for n in track.notes]
     med = statistics.median(errors)
-    if -0.10 <= med <= -0.015:
+    if VST_PRE_DELAY_MIN <= med <= VST_PRE_DELAY_MAX:
         shift = -med
         _shift_track(track, shift)
         track.vst_delay_beats = shift
@@ -608,6 +608,12 @@ def detect_micro_runs(track: Track, gap_min: float = 0.02, gap_max: float = 0.2,
                             target = segments[si + 1][1][0]
                         _notate_subrun(seg, target, measure_end=_find_measure_end(seg[0].start, measures))
         i = j if j > i else i + 1
+
+
+#: A VST pre-delay is only corrected when the median onset error sits in this
+#: window (beats). Smaller values are normal jitter; larger ones are tempo problems.
+VST_PRE_DELAY_MIN = -0.10
+VST_PRE_DELAY_MAX = -0.015
 
 
 def _ensure_sorted(track: Track) -> None:

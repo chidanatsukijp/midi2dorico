@@ -9,9 +9,10 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from models import Note, Score, Track
+from models import Note, Score, Track, group_by_onset
 from config_schema import ScoreEngravingConfig
-from harp_solver import DEFAULT_SHARP_SPELLING, DEFAULT_FLAT_SPELLING, STEP_SEMITONE
+from pitch_theory import (DEFAULT_FLAT_SPELLING, DEFAULT_SHARP_SPELLING,
+                          STEP_SEMITONE, octave_of)
 from measure_grid import build_measure_map, measure_index
 
 
@@ -269,7 +270,7 @@ def _spell_note(n: Note, flat: bool = False) -> None:
         step, alter = table[n.pitch % 12]
         n.step = step
         n.alter = alter
-        n.octave = round((n.pitch - STEP_SEMITONE[step] - alter) / 12) - 1
+        n.octave = octave_of(n.pitch, step, alter)
 
 
 ABBREVIATIONS = [
@@ -442,12 +443,8 @@ def _split_voices(pieces: List[Piece]) -> Tuple[List[Piece], List[Piece]]:
     (held note + moving line) that used to truncate the long note. At most two
     voices are produced, which is what Dorico needs on one staff.
     """
-    groups: List[Tuple[float, List[Piece]]] = []
-    for p in sorted(pieces, key=lambda x: x.start):
-        if groups and abs(p.start - groups[-1][0]) < 1e-9:
-            groups[-1][1].append(p)
-        else:
-            groups.append((p.start, [p]))
+    groups = [(g[0].start, g)
+              for g in group_by_onset(sorted(pieces, key=lambda x: x.start))]
 
     v1: List[Piece] = []
     v2: List[Piece] = []

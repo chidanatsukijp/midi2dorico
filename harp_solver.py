@@ -11,40 +11,9 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
 
 from models import Note, Track
+from pitch_theory import (DEFAULT_FLAT_SPELLING, DEFAULT_SHARP_SPELLING,  # noqa: F401
+                          HARP_STEPS as STEPS, PC_SPELLINGS, STEP_SEMITONE)
 from midi_inspector import measure_index
-
-
-STEPS = ["D", "C", "B", "E", "F", "G", "A"]
-
-STEP_SEMITONE = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
-
-#: pitch class -> valid (step, alter) harp spellings (alter in {-1, 0, +1})
-PC_SPELLINGS: Dict[int, List[Tuple[str, int]]] = {
-    0:  [("C", 0), ("B", 1)],
-    1:  [("C", 1), ("D", -1)],
-    2:  [("D", 0)],
-    3:  [("D", 1), ("E", -1)],
-    4:  [("E", 0), ("F", -1)],
-    5:  [("E", 1), ("F", 0)],
-    6:  [("F", 1), ("G", -1)],
-    7:  [("G", 0)],
-    8:  [("G", 1), ("A", -1)],
-    9:  [("A", 0)],
-    10: [("A", 1), ("B", -1)],
-    11: [("B", 0), ("C", -1)],
-}
-
-#: default (sharp) spelling for non-harp parts
-DEFAULT_SHARP_SPELLING: Dict[int, Tuple[str, int]] = {
-    0: ("C", 0), 1: ("C", 1), 2: ("D", 0), 3: ("D", 1), 4: ("E", 0), 5: ("F", 0),
-    6: ("F", 1), 7: ("G", 0), 8: ("G", 1), 9: ("A", 0), 10: ("A", 1), 11: ("B", 0),
-}
-
-#: Enharmonic spelling for flat keys (F, Bb, Eb, Ab, ...).
-DEFAULT_FLAT_SPELLING: Dict[int, Tuple[str, int]] = {
-    0: ("C", 0), 1: ("D", -1), 2: ("D", 0), 3: ("E", -1), 4: ("E", 0), 5: ("F", 0),
-    6: ("G", -1), 7: ("G", 0), 8: ("A", -1), 9: ("A", 0), 10: ("B", -1), 11: ("B", 0),
-}
 
 
 def _idx_to_state(idx: int) -> Dict[str, int]:

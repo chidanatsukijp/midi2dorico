@@ -12,7 +12,9 @@ from typing import Dict, List, Optional, Tuple
 DIVISIONS = 1680
 
 
-_REST_STYLE = {"style": "standard"}  # quarter = 1680; 16th = 420; 32nd = 210; 64th = 105; divisible by 3/5/7/16
+#: Default rest spelling style. Callers pass their own (config.rest_style);
+#: nothing here is global state.
+DEFAULT_REST_STYLE = "standard"
 
 
 STANDARD_DURATIONS = [
@@ -125,7 +127,8 @@ def _measure_boundaries(num: int, den: int, measure_len: float,
 
 def _decompose_rest(beats: float, start: float,
                     measure_len: Optional[float] = None,
-                    boundaries: Optional[List[float]] = None) -> List[Tuple[float, str, bool, Optional[Tuple[int, int]]]]:
+                    boundaries: Optional[List[float]] = None,
+                    style: str = DEFAULT_REST_STYLE) -> List[Tuple[float, str, bool, Optional[Tuple[int, int]]]]:
     """Split a rest at beat boundaries, shortest piece first.
 
     A 1.25-beat rest beginning at beat 2.75 becomes "16th + quarter" (short piece
@@ -139,11 +142,11 @@ def _decompose_rest(beats: float, start: float,
             parts: List[Tuple[float, str, bool, Optional[Tuple[int, int]]]] = []
             cursor = start
             for b in cuts + [start + beats]:
-                parts += _decompose_rest_segment(b - cursor, cursor)
+                parts += _decompose_rest_segment(b - cursor, cursor, style)
                 cursor = b
             return parts
 
-    if _REST_STYLE.get("style") == "merged":
+    if style == "merged":
         single = _type_from_beats(beats)
         if single[0] is not None:
             return [(beats, single[0], single[1], single[2])]
@@ -152,18 +155,20 @@ def _decompose_rest(beats: float, start: float,
     if measure_len and abs(measure_len % 4.0) < 1e-9 and measure_len >= 4.0:
         mid = measure_len / 2.0
         if start < mid - 1e-9 and start + beats > mid + 1e-9:
-            return (_decompose_rest_segment(mid - start, start)
-                    + _decompose_rest_segment(start + beats - mid, mid))
-    return _decompose_rest_segment(beats, start)
+            return (_decompose_rest_segment(mid - start, start, style)
+                    + _decompose_rest_segment(start + beats - mid, mid, style))
+    return _decompose_rest_segment(beats, start, style)
 
 
-def _decompose_rest_segment(beats: float, start: float) -> List[Tuple[float, str, bool, Optional[Tuple[int, int]]]]:
+def _decompose_rest_segment(beats: float, start: float,
+                            style: str = DEFAULT_REST_STYLE
+                            ) -> List[Tuple[float, str, bool, Optional[Tuple[int, int]]]]:
     """Spell one rest segment that does not cross the bar midpoint."""
     parts: List[Tuple[float, str, bool, Optional[Tuple[int, int]]]] = []
     # A rest whose total length is already one standard value stays a SINGLE
     # symbol (a one-beat rest at 1.5 is a quarter rest, not two 8th rests), except
     # for a half rest on an odd beat, whose position would be ambiguous.
-    if _REST_STYLE.get("style") == "merged":
+    if style == "merged":
         single = _type_from_beats(beats)
         if single[0] is not None:
             return [(beats, single[0], single[1], single[2])]

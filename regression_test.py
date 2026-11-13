@@ -307,6 +307,35 @@ def test_key_aware_spelling() -> str:
     return f"{len(cases)} spellings"
 
 
+
+def test_rest_style_parameter() -> str:
+    """rest_style is an argument, not module state, and it still has an effect."""
+    import notation_values
+
+    if hasattr(notation_values, "_REST_STYLE"):
+        raise AssertionError("_REST_STYLE global came back")
+
+    def rests(style):
+        t = Track(index=0, name="Vln", part_name="Vln", instrument_type="strings",
+                  min_playable_pitch=21)
+        # a two-beat rest starting on beat 2: standard spells two quarters,
+        # merged accepts a single half rest
+        t.notes = [Note(pitch=60, start=0.0, end=1.0),
+                   Note(pitch=62, start=3.0, end=4.0)]
+        sc = Score(tracks=[t], title="t", ticks_per_beat=480,
+                   time_sigs=[(0.0, 4, 4)], key_fifths=0)
+        root = ET.fromstring(
+            XE.build_musicxml(sc, ScoreEngravingConfig(title="t", rest_style=style)).encode("utf-8"))
+        return [(n.find("type").text, int(n.find("duration").text))
+                for n in root.iter("note") if n.find("rest") is not None]
+
+    standard = rests("standard")
+    merged = rests("merged")
+    eq(standard, [("quarter", 1680), ("quarter", 1680)], "standard splits the rest")
+    eq(merged, [("half", 3360)], "merged keeps one symbol")
+    return "parameter, not global"
+
+
 def measure_lengths(root) -> dict:
     """(part_id, measure_number) -> expected divisions, following <time> changes."""
     out = {}
@@ -438,6 +467,7 @@ def main() -> int:
     check("beat grouping", test_beat_grouping)
     check("abbreviations + 3-voice kit", test_abbreviations_and_percussion_voices)
     check("key-aware spelling", test_key_aware_spelling)
+    check("rest_style is a parameter", test_rest_style_parameter)
 
     print("integration")
     check("end-to-end scores", lambda: test_integration(quick))

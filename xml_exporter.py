@@ -14,7 +14,7 @@ from config_schema import ScoreEngravingConfig
 from pitch_theory import octave_of, spell_note
 from measure_grid import build_measure_map, measure_index
 
-from notation_values import (DIVISIONS, _REST_STYLE, _decompose_duration,
+from notation_values import (DEFAULT_REST_STYLE, DIVISIONS, _decompose_duration,
                               _decompose_rest, _measure_boundaries,
                               _nearest_type, _type_from_beats)
 from directions import (_add_tuplet_brackets, _direction_words, _dynamic_direction,
@@ -764,7 +764,8 @@ def _note_element(parent: ET.Element, piece: Piece, unpitched: bool = False, sta
 
 def _emit_piece(parent: ET.Element, piece: Piece, unpitched: bool = False, staff_lines: int = 5,
                 part_id: str = "", measure_len: Optional[float] = None,
-                boundaries: Optional[List[float]] = None) -> None:
+                boundaries: Optional[List[float]] = None,
+                rest_style: str = DEFAULT_REST_STYLE) -> None:
     """Emit a piece as one or several notes/rests.
 
     Non-standard durations are decomposed into tied notes (or, for rests, into a
@@ -777,7 +778,7 @@ def _emit_piece(parent: ET.Element, piece: Piece, unpitched: bool = False, staff
             _note_element(parent, piece, unpitched, staff_lines, part_id)
             return
         for bv, _t, _d, _tmod in _decompose_rest(piece.duration, piece.start, measure_len,
-                                                 boundaries):
+                                                 boundaries, rest_style):
             sub = Piece(start=piece.start, duration=bv, is_rest=True, voice=piece.voice, staff=piece.staff)
             _note_element(parent, sub, unpitched, staff_lines, part_id)
         return
@@ -862,7 +863,8 @@ def _clef_for(instrument_type: str, part_name: str) -> Tuple[str, str]:
 def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], key_fifths: int,
                    pieces_map: Dict[int, List[Piece]],
                    tempos: Optional[List[Tuple[float, float]]] = None,
-                   grouping: Optional[Dict[str, List[int]]] = None) -> ET.Element:
+                   grouping: Optional[Dict[str, List[int]]] = None,
+                   rest_style: str = DEFAULT_REST_STYLE) -> ET.Element:
     measure = ET.Element("measure", number=str(m + 1))
     m_start, num, den = measures[m]
     m_len = num * 4.0 / den
@@ -946,7 +948,7 @@ def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], k
                     perc: bool = False) -> None:
         for p in _fill_staff(pieces, m_len, voice, staff_no, percussion=perc):
             _emit_piece(measure, p, part.unpitched, part.staff_lines, part.part_id,
-                        m_len, bounds)
+                        m_len, bounds, rest_style)
 
     def _backup() -> None:
         b = ET.SubElement(measure, "backup")
@@ -971,7 +973,8 @@ def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], k
 
         def _emit_drum(pieces: List[Piece], voice: int) -> None:
             for p in _fill_staff(pieces, m_len, voice, 0, beat_beaming=True, percussion=True):
-                _emit_piece(measure, p, True, part.staff_lines, part.part_id, m_len, bounds)
+                _emit_piece(measure, p, True, part.staff_lines, part.part_id, m_len,
+                            bounds, rest_style)
 
         # Hands can hold two independent lines (e.g. a ride pattern under a snare
         # roll). Split them the same way a pitched staff is split, and keep the
@@ -1004,7 +1007,7 @@ def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], k
 
 
 def build_musicxml(score: Score, config: ScoreEngravingConfig) -> str:
-    _REST_STYLE["style"] = getattr(config, "rest_style", "standard")
+    rest_style = getattr(config, "rest_style", DEFAULT_REST_STYLE)
     # Turn program changes into technique texts here as well, so calling
     # build_musicxml() directly (as a library, without main.run) does not silently
     # lose pizz./arco markings. Idempotent: merge_tracks_by_group already did it.
@@ -1089,7 +1092,8 @@ def build_musicxml(score: Score, config: ScoreEngravingConfig) -> str:
         tempos = score.tempos if part_idx == 0 else []
         for m in range(len(measures)):
             part_el.append(_build_measure(part, m, measures, score.key_fifths, pieces_map,
-                                          tempos, getattr(config, "beat_grouping", None)))
+                                          tempos, getattr(config, "beat_grouping", None),
+                                          rest_style))
 
     ET.indent(root, space="  ")
     body = ET.tostring(root, encoding="unicode")

@@ -1,0 +1,36 @@
+#!/bin/sh
+# commit-msg hook: Conventional Commits prefix + subject length.
+# Enable once per clone:  git config core.hooksPath .githooks
+
+msgfile="$1"
+subject=$(head -n 1 "$msgfile" | tr -d '\r')
+
+# let merge / revert / fixup commits through
+case "$subject" in
+  Merge*|Revert*|fixup!*|squash!*|"") exit 0 ;;
+esac
+
+len=$(printf '%s' "$subject" | wc -m | tr -d ' ')
+
+if [ "$len" -gt 72 ]; then
+  echo "commit-msg: subject is $len characters; the hard limit is 72." >&2
+  echo "  Put the detail in the body after a blank line." >&2
+  exit 1
+fi
+
+if [ "$len" -gt 50 ]; then
+  echo "commit-msg: warning - subject is $len characters (aim for 50)." >&2
+fi
+
+prefix=$(printf '%s' "$subject" | sed -n 's/^\([a-z]*\): .*/\1/p')
+case "$prefix" in
+  feat|fix|refactor|docs|test|chore|perf|build|ci|revert) ;;
+  *)
+    echo "commit-msg: subject must start with a Conventional Commit prefix," >&2
+    echo "  one of feat: fix: refactor: docs: test: chore: perf: build: ci:" >&2
+    echo "  got: $subject" >&2
+    exit 1
+    ;;
+esac
+
+exit 0

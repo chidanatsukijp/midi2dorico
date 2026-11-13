@@ -35,7 +35,7 @@ How a MIDI file becomes a Dorico-ready full score, and where each decision lives
 | Module | Responsibility | Must not |
 |---|---|---|
 | `models.py` | `Note`, `Track`, `Score` dataclasses; `group_by_onset` / `same_onset` shared by every stage | import anything from the pipeline |
-| `pitch_theory.py` | pitch classes, spellings, key signatures, harp string order | parse MIDI |
+| `pitch_theory.py` | pitch classes, key signatures, `spell_note()` (tiered: diatonic > un-altered key letter > chroma + direction) | parse MIDI |
 | `config_schema.py` | Pydantic `ScoreEngravingConfig` / `TrackEngravingRule` | contain engraving logic |
 | `midi_inspector.py` | MIDI → `Score`, track classification, config application, track merging | know about MusicXML |
 | `measure_grid.py` | bar starts and lengths from the time signatures | parse MIDI |
@@ -43,7 +43,9 @@ How a MIDI file becomes a Dorico-ready full score, and where each decision lives
 | `timing_cleaner.py` | every *timing* decision: quantization, rest merging, staccato, arpeggio collapse, keyswitches, VST delay | emit XML |
 | `grand_staff_splitter.py` | assign notes to staff 1/2 (Viterbi) | touch timing |
 | `harp_solver.py` | 7-pedal search, enharmonic respelling, `<harp-pedals>` data | touch timing |
-| `xml_exporter.py` | serialize: voice split, rest spelling, beams, notations, directions | parse MIDI |
+| `xml_exporter.py` | measure writer: voices, beams, notations, note assembly | parse MIDI |
+| `notation_values.py` | duration/rest spelling, bar arithmetic | emit XML |
+| `directions.py` | tempo, dynamics, tuplets, harp pedals as `<direction>` | decide timing |
 | `profiles.py` | reusable per-library conventions | contain music-specific data |
 | `main.py` | CLI, config resolution, error messages | encode engraving rules |
 
@@ -62,6 +64,11 @@ followed by a short rest) are merged into one longer value earlier, in
 **Voices.** `_split_voices` is greedy: an onset group that starts while voice 1
 still sounds goes to voice 2. Two voices per staff, no more. Chord members always
 share a voice.
+
+**Spelling.** `pitch_theory.spell_note` ranks candidates in tiers: a diatonic
+note wins outright; next comes restoring a letter the key alters (B-flat major
+spells B natural, not C-flat); then the conventional chroma (raise the 4th/1st,
+lower the 7th/3rd/6th/2nd), with the melodic direction as the final tie-break.
 
 **Transposition.** Notes are transposed to written pitch *after* keyswitch
 stripping (so trigger pitches below the playable range are removed in concert

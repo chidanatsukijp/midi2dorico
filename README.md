@@ -227,7 +227,9 @@ The rendering helpers need the optional dependencies:
 
 - **No slurs.** Phrase slurs are left to the arranger (automatic detection is noisy).
 - No hairpins or accents: MIDI has no CC11 expression, so those would be guesswork.
-- Accidentals use a static sharp/flat table (not key-aware).
+- Accidentals follow the key signature and the melodic direction; a chroma
+  with no melodic context takes the conventional spelling (B-flat rather
+  than A-sharp in C major).
 - Percussion is fixed to two voices (hands/feet).
 - The PDF preview is Verovio, one system per page; the final layout comes from Dorico.
 ## Further reading

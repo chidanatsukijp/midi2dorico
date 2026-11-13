@@ -38,30 +38,6 @@ class Part:
     dynamic_marks: List[Tuple[float, str]] = field(default_factory=list)
 
 
-#: Standard GM percussion display positions on a 5-line staff:
-#: MIDI pitch -> (display-step, display-octave). Covers GM kit + Steven Slate Drums.
-GM_PERCUSSION_DISPLAY: Dict[int, Tuple[str, str]] = {
-    36: ("F", "4"), 35: ("F", "4"),                                   # kick
-    44: ("D", "4"),                                                   # pedal hi-hat
-    37: ("C", "5"), 38: ("C", "5"), 39: ("C", "5"), 40: ("C", "5"),   # snare / rim / clap
-    41: ("A", "4"), 43: ("B", "4"),                                   # floor toms
-    45: ("D", "5"), 47: ("E", "5"), 48: ("F", "5"), 50: ("G", "5"),   # rack toms
-    42: ("G", "5"), 46: ("G", "5"),                                   # hi-hat
-    49: ("A", "5"), 57: ("A", "5"), 52: ("A", "5"), 55: ("A", "5"),   # crash / china / splash
-    51: ("F", "5"), 59: ("F", "5"), 53: ("F", "5"),                   # ride / ride bell
-    54: ("G", "5"), 56: ("E", "5"), 58: ("A", "5"),                   # tambourine / cowbell
-    60: ("E", "5"), 61: ("C", "5"), 62: ("E", "5"), 63: ("E", "5"),
-    64: ("C", "5"), 65: ("E", "5"), 66: ("A", "5"),
-}
-
-#: Notehead per drum: cymbals use "x", open hi-hat "circle-x", ride bell "diamond".
-GM_NOTEHEAD: Dict[int, str] = {
-    42: "x", 46: "circle-x", 44: "x", 49: "x", 57: "x", 55: "x", 52: "circle-x",
-    51: "x", 59: "x", 53: "diamond", 54: "diamond", 56: "triangle", 37: "x",
-    39: "slash", 58: "triangle", 69: "triangle", 70: "triangle", 80: "triangle",
-    81: "triangle", 75: "triangle", 76: "triangle", 77: "triangle",
-}
-
 #: Foot-operated pieces: down-stem voice in Dorico's default kit presentation.
 FOOT_PITCHES = {35, 36, 44}
 
@@ -118,6 +94,8 @@ def _load_gm_tables() -> Tuple[Dict[str, int], Dict[str, int], Dict[int, Tuple[s
     }
 
 
+#: Instrument order, MIDI programs and the percussion tables all come from
+#: data/gm.json (display position, notehead and sound per drum, plus names).
 _GM = _load_gm_tables()
 INSTRUMENT_ORDER = _GM["instrument_order"]
 MIDI_PROGRAMS = _GM["midi_programs"]

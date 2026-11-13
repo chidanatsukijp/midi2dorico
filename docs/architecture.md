@@ -85,15 +85,19 @@ direct `build_musicxml` call produce the same directions.
 ## Known limitations
 
 1. **Instruments are classified by English track names.** Non-English names fall
-   back to `other` and log a warning; a profile `tracks` pattern can override them.
-2. **Two voices per staff maximum.** A third simultaneous line is folded into the
-   busiest voice rather than rejected.
-3. **`beat_grouping` only covers meters you declare.** Defaults are 5/8 = 3+2 and
-   7/8 = 2+2+3; add e.g. `"11/16": [3, 2, 3, 3]` for anything else. Undeclared
+   back to other and log a warning; a profile 	racks pattern can override them.
+2. **Pitched staves hold two voices; a drum kit holds three.** A pitched staff folds
+   a third simultaneous line into the busiest voice; percussion gets hands (1),
+   feet (2) and a second hand line (3) when the hands really overlap.
+3. **eat_grouping only covers meters you declare.** Defaults are 5/8 = 3+2 and
+   7/8 = 2+2+3; add e.g. "11/16": [3, 2, 3, 3] for anything else. Undeclared
    asymmetric meters keep the generic midpoint rule.
-4. **`<part-abbreviation>` is not emitted**, so preview renderers that reserve the
-   full part-name column leave a wide left margin from page 2 on. Dorico handles
-   this itself.
+4. **Preview renderers do not wrap part names.** <part-abbreviation> is emitted
+   for later systems and 
+ender_pdf.py shortens over-long names in a temporary
+   copy before rendering, so the preview stays readable; the exported score keeps
+   the original names.
+
 
 ## History of this document
 

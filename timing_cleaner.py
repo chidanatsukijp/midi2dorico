@@ -183,11 +183,6 @@ def trim_overlaps(track: Track, max_trim: float = 0.5) -> None:
                 n.end = nxt_start
 
 
-def _snap_pitched(x: float) -> float:
-    """Placeholder kept for compatibility; onset snapping is 16th-grid + isolated alignment."""
-    return round(x / 0.25) * 0.25
-
-
 def _align_isolated_sixteenths(track: Track) -> None:
     """Snap isolated 16th-position notes to the previous 8th.
 
@@ -232,18 +227,6 @@ def quantize_notes(track: Track, grid: float = 0.25) -> None:
         n.end = n.start + dur
     if not track.unpitched:
         _align_isolated_sixteenths(track)
-
-
-def _slot_end(x: float) -> float:
-    """End of a note's natural rhythmic slot based on its grid position.
-
-    On the beat -> quarter slot; anywhere else (8th or 16th) -> 8th slot. This
-    merges the classic "ineffective rest" patterns: 16th + 16th rest -> 8th, and
-    16th + 16th rest + 8th rest (on the beat) -> quarter.
-    """
-    if abs(x % 1.0) < 1e-9:
-        return x + 1.0
-    return x + 0.5
 
 
 def mark_detached(track: Track) -> None:

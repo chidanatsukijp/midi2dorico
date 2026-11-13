@@ -48,8 +48,7 @@ def _unpitched_display(pitch: int, staff_lines: int) -> Tuple[str, str]:
     return GM_PERCUSSION_DISPLAY.get(pitch, ("A", "5"))
 
 
-def _load_gm_tables() -> Tuple[Dict[str, int], Dict[str, int], Dict[int, Tuple[str, str]],
-                               Dict[int, str], Dict[int, str]]:
+def _load_gm_tables() -> Dict[str, object]:
     """Instrument/program/percussion tables live in data/gm.json so they can be
     adapted without editing Python."""
     path = os.path.join(HERE, "data", "gm.json")

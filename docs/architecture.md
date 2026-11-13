@@ -43,7 +43,10 @@ How a MIDI file becomes a Dorico-ready full score, and where each decision lives
 | `timing_cleaner.py` | every *timing* decision: quantization, rest merging, staccato, arpeggio collapse, keyswitches, VST delay | emit XML |
 | `grand_staff_splitter.py` | assign notes to staff 1/2 (Viterbi) | touch timing |
 | `harp_solver.py` | 7-pedal search, enharmonic respelling, `<harp-pedals>` data | touch timing |
-| `xml_exporter.py` | measure writer: voices, beams, notations, note assembly | parse MIDI |
+| `xml_exporter.py` | measure writer: voices, beams, notations, assembly | parse MIDI |
+| `score_model.py` | `Part` and `Piece` dataclasses shared by the writers | contain logic |
+| `part_catalog.py` | GM tables, noteheads, names, abbreviations, `<part-list>` | decide timing |
+| `note_writer.py` | one `Piece` → `<note>` elements | know about measures |
 | `notation_values.py` | duration/rest spelling, bar arithmetic | emit XML |
 | `directions.py` | tempo, dynamics, tuplets, harp pedals as `<direction>` | decide timing |
 | `profiles.py` | reusable per-library conventions | contain music-specific data |

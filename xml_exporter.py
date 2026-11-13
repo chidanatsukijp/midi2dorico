@@ -108,14 +108,22 @@ def _load_gm_tables() -> Tuple[Dict[str, int], Dict[str, int], Dict[int, Tuple[s
     path = os.path.join(HERE, "data", "gm.json")
     with open(path, encoding="utf-8-sig") as f:
         d = json.load(f)
-    display = {int(k): (str(v[0]), str(v[1])) for k, v in d["percussion_display"].items()}
-    noteheads = {int(k): v for k, v in d["noteheads"].items()}
-    names = {int(k): v for k, v in d["percussion_names"].items()}
-    return d["instrument_order"], d["midi_programs"], display, noteheads, names
+    return {
+        "instrument_order": d["instrument_order"],
+        "midi_programs": d["midi_programs"],
+        "percussion_display": {int(k): (str(v[0]), str(v[1]))
+                                for k, v in d["percussion_display"].items()},
+        "noteheads": {int(k): v for k, v in d["noteheads"].items()},
+        "percussion_names": {int(k): v for k, v in d["percussion_names"].items()},
+    }
 
 
-INSTRUMENT_ORDER, MIDI_PROGRAMS, GM_PERCUSSION_DISPLAY, GM_NOTEHEAD, GM_PERCUSSION_NAMES = \
-    _load_gm_tables()
+_GM = _load_gm_tables()
+INSTRUMENT_ORDER = _GM["instrument_order"]
+MIDI_PROGRAMS = _GM["midi_programs"]
+GM_PERCUSSION_DISPLAY = _GM["percussion_display"]
+GM_NOTEHEAD = _GM["noteheads"]
+GM_PERCUSSION_NAMES = _GM["percussion_names"]
 
 
 @dataclass

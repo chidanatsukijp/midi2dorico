@@ -277,6 +277,37 @@ def test_abbreviations_and_percussion_voices() -> str:
     return "5 abbreviations, 3-voice kit"
 
 
+
+def test_key_aware_spelling() -> str:
+    """Accidentals follow the key signature and the melodic direction."""
+    from pitch_theory import spell_note
+
+    cases = [
+        (70, 0, None, None, ("B", -1)),   # C major: B-flat, not A-sharp
+        (63, 0, None, None, ("E", -1)),   # C major: E-flat, not D-sharp
+        (66, 0, None, None, ("F", 1)),    # C major: F-sharp
+        (71, -2, 72, 70, ("B", 0)),       # B-flat major: B natural, not C-flat
+        (63, 2, None, None, ("D", 1)),    # D major: D-sharp is diatonic
+        (70, 4, None, None, ("A", 1)),    # E major: A-sharp, not B-flat
+        (66, -2, 65, 67, ("F", 1)),       # G minor: F-sharp leading tone
+        (61, 0, 60, 62, ("C", 1)),        # rising chromatic note: C-sharp
+        (61, 0, 62, 60, ("D", -1)),       # falling chromatic note: D-flat
+    ]
+    for pitch, fifths, prev, nxt, want in cases:
+        eq(spell_note(pitch, fifths, prev, nxt), want,
+           f"spell({pitch}, fifths={fifths}, prev={prev}, next={nxt})")
+
+    # and it reaches the XML: a B-flat in C major must be B-flat, not A-sharp
+    track = Track(index=0, name="Vln", part_name="Vln", instrument_type="strings",
+                  min_playable_pitch=21)
+    track.notes = [Note(pitch=70, start=0.0, end=1.0)]
+    root = ET.fromstring(build([track]).encode("utf-8"))
+    pitch_el = root.find("part/measure/note/pitch")
+    eq(pitch_el.find("step").text, "B", "XML step")
+    eq(pitch_el.find("alter").text, "-1", "XML alter")
+    return f"{len(cases)} spellings"
+
+
 def measure_lengths(root) -> dict:
     """(part_id, measure_number) -> expected divisions, following <time> changes."""
     out = {}
@@ -407,6 +438,7 @@ def main() -> int:
     check("library profiles", test_profiles)
     check("beat grouping", test_beat_grouping)
     check("abbreviations + 3-voice kit", test_abbreviations_and_percussion_voices)
+    check("key-aware spelling", test_key_aware_spelling)
 
     print("integration")
     check("end-to-end scores", lambda: test_integration(quick))

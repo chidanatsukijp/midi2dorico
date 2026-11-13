@@ -610,6 +610,14 @@ def detect_micro_runs(track: Track, gap_min: float = 0.02, gap_max: float = 0.2,
         i = j if j > i else i + 1
 
 
+def _ensure_sorted(track: Track) -> None:
+    """Several stages move note onsets in place; restore the ordering invariant
+    that dedupe / trim / export rely on."""
+    notes = track.notes
+    if any(notes[i].start > notes[i + 1].start + 1e-9 for i in range(len(notes) - 1)):
+        notes.sort(key=lambda n: (n.start, n.pitch))
+
+
 def process_track(track: Track, config: ScoreEngravingConfig,
                   measures: Optional[List[Tuple[float, int, int]]] = None) -> None:
     strip_keyswitches(track, getattr(config, "keyswitch_map", None))
@@ -639,3 +647,4 @@ def process_track(track: Track, config: ScoreEngravingConfig,
         # Percussion is engraved one voice per instrument, so merge rests per pitch.
         consolidate_percussion(track, measures)
     finalize_staccato(track)
+    _ensure_sorted(track)

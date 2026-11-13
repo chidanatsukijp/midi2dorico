@@ -13,6 +13,37 @@ transposition, percussion kits, glissandi, playing techniques and dynamics.
 
 ---
 
+## Quick start
+
+```bash
+pip install -r requirements.txt                 # mido, pydantic, lxml
+python main.py --input your_score.mid --output score.musicxml
+```
+
+Then in Dorico: **File → Import → MusicXML**. Try it with the bundled test score
+first — no external files needed:
+
+```bash
+python test_generator.py                        # writes test_orchestra.mid + config
+python main.py --input test_orchestra.mid --config engraving_config.json --output out.musicxml
+python render_pdf.py out.musicxml out.pdf a4 45 # needs requirements-render.txt
+```
+
+### Command-line flags
+
+| Flag | Meaning |
+|---|---|
+| `--input PATH` | input `.mid` (required) |
+| `--output PATH` | output `.musicxml` (default `full_score.musicxml`) |
+| `--config PATH` | explicit engraving config, see [Configuration](#configuration) |
+| `--profile NAME` | library profile: `profiles/<name>.json` or a path |
+| `--manifest PATH` | write a per-track diagnostic JSON (pitch ranges, keyswitch candidates) |
+| `--interactive` | ask per track (family, transposition, keyswitch threshold), then convert |
+
+Precedence: an explicit `--config` wins over `--profile`, and `--profile` wins
+over the automatic detection. Without either, instruments are guessed from the
+track names.
+
 ## Why another MIDI → MusicXML tool?
 
 Most converters (`music21`, MuseScore/Finale/Sibelius MIDI import, small one-off scripts)
@@ -35,7 +66,6 @@ evening deleting 16th rests and splitting drum voices.
 
 Everything is verified: **XSD validation**, a **notation rule audit (R1–R7)**, a
 **fidelity audit against the original MIDI**, and a **regression suite**.
-
 ## Install
 
 ```bash
@@ -46,32 +76,6 @@ pip install -r requirements-render.txt   # optional: PDF preview (verovio, pymup
 The core install is enough to convert scores and to run the regression suite; the
 render requirements are only needed by `render_pdf.py`, `render_musicxml.py` and
 `preview_part.py`.
-
-## Quick start
-
-```bash
-# 1) Inspect the tracks (optional diagnostic)
-python midi_inspector.py --input your_score.mid --output manifest.json
-
-# 2) Convert with automatic instrument detection
-python main.py --input your_score.mid --output score.musicxml
-
-# 3) Convert with an explicit engraving config (recommended)
-python main.py --input your_score.mid --config engraving_config.json --output score.musicxml
-
-# 4) Render a PDF preview
-python render_pdf.py score.musicxml score.pdf a4 45
-```
-
-Then **File → Import → MusicXML** in Dorico.
-
-Try it without your own MIDI:
-
-```bash
-python test_generator.py     # writes test_orchestra.mid + engraving_config.json
-python main.py --input test_orchestra.mid --config engraving_config.json --output out.musicxml
-```
-
 ## How it works
 
 ```
@@ -88,7 +92,6 @@ MIDI ──▶ inspect (manifest) ──▶ merge tracks ──▶ clean/quantiz
 4. **Engrave** — split grand staves (Viterbi), solve harp pedals, assign voices, spell
    pitches, write transpositions, dynamics and technique texts.
 5. **Audit** — XSD, notation rules, fidelity to the source MIDI.
-
 ## Configuration
 
 `config_schema.py` defines the Pydantic model `ScoreEngravingConfig`; every option can
@@ -123,6 +126,27 @@ track names.
 | `pitch_remap` | Remap VST trigger pitches to real pitches (timpani `{"0": 38, "1": 45}`) |
 | `unpitched` / `staff_lines` | Unpitched percussion notation and staff lines (1 = single line, 5 = kit) |
 | `auto_vst_delay_compensation` / `manual_delay_offset_beats` | Automatic or manual pre-delay compensation |
+
+A minimal config only needs the tracks that need special treatment; everything
+else is inferred:
+
+```json
+{
+  "title": "My Piece",
+  "program_techniques": { "45": "pizz.", "44": "trem." },
+  "tracks": [
+    { "track_index": 4, "original_name": "Horn in F 1", "part_name": "Horn 1",
+      "instrument_type": "brass", "transpose_semitones": 7,
+      "manual_delay_offset_beats": 0.09, "keyswitch_map": { "24": "legato" } },
+    { "track_index": 9, "original_name": "Harp",
+      "instrument_type": "harp", "min_playable_pitch": 24 }
+  ]
+}
+```
+
+`manual_delay_offset_beats` is the forward shift used to cancel a constant VST
+pre-delay; `keyswitch_map` maps a trigger pitch to the technique text written on
+the score.
 
 ### `keyswitch_map` precedence
 
@@ -161,7 +185,6 @@ layer, so anything in an explicit `--config` still wins. A profile has two block
   ]
 }
 ```
-
 ## Regression tests
 
 ```bash
@@ -185,7 +208,6 @@ integration
 The integration stage checks every generated score for schema validity, measure sums,
 tie balance and the R1–R7 notation rules. Scores whose MIDI/config are absent are
 skipped, so a fresh clone only needs the built-in test material.
-
 ## Tools
 
 | Command | What it does |
@@ -199,7 +221,6 @@ skipped, so a fresh clone only needs the built-in test material.
 
 The rendering helpers need the optional dependencies:
 `pip install -r requirements-render.txt`.
-
 ## Limitations
 
 - **No slurs.** Phrase slurs are left to the arranger (automatic detection is noisy).
@@ -207,6 +228,11 @@ The rendering helpers need the optional dependencies:
 - Accidentals use a static sharp/flat table (not key-aware).
 - Percussion is fixed to two voices (hands/feet).
 - The PDF preview is Verovio, one system per page; the final layout comes from Dorico.
+## Further reading
+
+- [docs/architecture.md](docs/architecture.md) — data flow, module responsibilities,
+  and the refactors that are deliberately deferred.
+- [AGENT.md](AGENT.md) — the invariants an AI agent or contributor must not break.
 
 ## License
 

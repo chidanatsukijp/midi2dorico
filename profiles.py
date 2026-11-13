@@ -36,7 +36,7 @@ def resolve(name_or_path: str) -> str:
 
 
 def load(name_or_path: str) -> Dict[str, Any]:
-    with open(resolve(name_or_path), encoding="utf-8") as f:
+    with open(resolve(name_or_path), encoding="utf-8-sig") as f:
         return json.load(f)
 
 

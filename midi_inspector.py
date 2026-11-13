@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 from collections import OrderedDict
 import statistics
@@ -19,6 +20,9 @@ import mido
 
 from models import Note, Score, Track
 from config_schema import ScoreEngravingConfig, TrackEngravingRule
+
+
+log = logging.getLogger(__name__)
 
 
 def classify_track(name: str) -> Tuple[str, int]:
@@ -67,6 +71,12 @@ def classify_track(name: str) -> Tuple[str, int]:
         return "strings", 36
     if has("double bass", "contrabass", "upright bass", "acoustic bass", "bass"):
         return "strings", 28
+
+    # Nothing matched: say so instead of silently engraving a horn at concert pitch
+    # on a single treble staff.
+    log.warning("track %r: unknown instrument family -> 'other' (treble clef, no "
+                "transposition, one staff). Set instrument_type / transpose_semitones "
+                "in the config or a profile.", name)
     return "other", 36
 
 

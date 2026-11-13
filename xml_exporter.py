@@ -9,19 +9,23 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from models import Note, Score, Track, group_by_onset
+from models import ONSET_EPS, Note, Score, Track, group_by_onset
 from config_schema import ScoreEngravingConfig
-from pitch_theory import (DEFAULT_FLAT_SPELLING, DEFAULT_SHARP_SPELLING,
-                          STEP_SEMITONE, octave_of)
+from pitch_theory import STEP_SEMITONE, octave_of, spell_note
 from measure_grid import build_measure_map, measure_index
 
+from notation_values import (DIVISIONS, STANDARD_DURATIONS, _REST_STYLE,
+                              _BIG_REST_VALUES, _decompose_duration,
+                              _decompose_rest, _decompose_rest_segment,
+                              _measure_boundaries, _nearest_type,
+                              _quarter_only_split, _type_from_beats)
+from directions import (_add_tuplet_brackets, _direction_words, _dynamic_direction,
+                        _harp_pedal_direction, _plan_dynamics, _tempo_direction)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-DIVISIONS = 1680
 
 #: Rest spelling style, set from the engraving config at export time.
-_REST_STYLE = {"style": "standard"}  # quarter = 1680; 16th = 420; 32nd = 210; 64th = 105; divisible by 3/5/7/16
 
 
 
@@ -146,71 +150,12 @@ class Piece:
 
 
 #: Standard note durations (beats) -> (type, dotted, time-modification), largest first.
-STANDARD_DURATIONS = [
-    (4.0, "whole", False, None),
-    (3.0, "half", True, None),
-    (2.0, "half", False, None),
-    (1.5, "quarter", True, None),
-    (1.0, "quarter", False, None),
-    (0.75, "eighth", True, None),
-    (0.5, "eighth", False, None),
-    (0.25, "16th", False, None),
-    (0.125, "32nd", False, None),
-]
 
 
-def _decompose_duration(beats: float) -> List[Tuple[float, str, bool, Optional[Tuple[int, int]]]]:
-    """Greedily split a duration into standard note values (largest first).
-
-    A note whose duration is not a single standard value (e.g. 2.5 beats = half +
-    eighth, or 6.0 = whole + half) must be emitted as tied standard notes.
-    """
-    parts: List[Tuple[float, str, bool, Optional[Tuple[int, int]]]] = []
-    remaining = beats
-    guard = 0
-    while remaining > 1e-6 and guard < 64:
-        guard += 1
-        for bv, t, d, tmod in STANDARD_DURATIONS:
-            if bv <= remaining + 1e-6:
-                parts.append((bv, t, d, tmod))
-                remaining -= bv
-                break
-        else:
-            parts.append((0.25, "16th", False, None))
-            remaining -= 0.25
-    return parts
 
 
-def _type_from_beats(b: float) -> Tuple[Optional[str], bool, Optional[Tuple[int, int]]]:
-    table = [
-        (4.0, "whole", False), (3.0, "half", True), (2.0, "half", False),
-        (1.5, "quarter", True), (1.0, "quarter", False), (0.75, "eighth", True),
-        (0.5, "eighth", False), (0.25, "16th", False), (0.125, "32nd", False),
-        (0.0625, "64th", False),
-    ]
-    for bv, t, d in table:
-        if abs(b - bv) < 1e-6:
-            return t, d, None
-    if abs(b - 4.0 / 3.0) < 1e-3:
-        return "quarter", False, (3, 2)
-    if abs(b - 2.0 / 3.0) < 1e-3:
-        return "eighth", False, (3, 2)
-    if abs(b - 1.0 / 3.0) < 1e-3:
-        return "16th", False, (3, 2)
-    # Other tuplet ratios (5:4, 6:4, 7:4) over the usual bases, so a quintuplet or
-    # septuplet note never falls back to a wrong plain <type>.
-    for act in (3, 5, 6, 7):
-        norm = 2 if act == 3 else 4
-        for base_b, base_t in ((0.5, "eighth"), (0.25, "16th"), (0.125, "32nd")):
-            if abs(b - base_b * norm / act) < 1e-3:
-                return base_t, False, (act, norm)
-    return None, False, None  # non-standard duration
 
 
-def _nearest_type(b: float):
-    """Closest standard note value, used only as a last-resort <type> fallback."""
-    best = min(STANDARD_DURATIONS, key=lambda row: abs(math.log2(max(b, 1e-6)) - math.log2(row[0])))
-    return best[1], best[2]
 
 
 def _part_fifths(key_fifths: int, transpose: int) -> int:
@@ -264,13 +209,23 @@ def _instrument_sound(part_name: str, instrument_type: str):
     return None
 
 
-def _spell_note(n: Note, flat: bool = False) -> None:
-    if not n.step:
-        table = DEFAULT_FLAT_SPELLING if flat else DEFAULT_SHARP_SPELLING
-        step, alter = table[n.pitch % 12]
-        n.step = step
-        n.alter = alter
-        n.octave = octave_of(n.pitch, step, alter)
+def _spell_part(part: Part, fifths: int) -> None:
+    """Spell every unspelled note, giving each one its melodic context."""
+    ordered = sorted(part.notes, key=lambda n: (n.start, n.pitch))
+    prev: Optional[int] = None
+    i = 0
+    while i < len(ordered):
+        j = i
+        while j < len(ordered) and abs(ordered[j].start - ordered[i].start) <= ONSET_EPS:
+            j += 1
+        nxt = ordered[j].pitch if j < len(ordered) else None
+        for n in ordered[i:j]:
+            if n.step:
+                continue
+            n.step, n.alter = spell_note(n.pitch, fifths, prev, nxt)
+            n.octave = octave_of(n.pitch, n.step, n.alter)
+        prev = ordered[j - 1].pitch
+        i = j
 
 
 ABBREVIATIONS = [
@@ -803,121 +758,14 @@ def _note_element(parent: ET.Element, piece: Piece, unpitched: bool = False, sta
 
 
 #: Values a rest may use when we want to avoid 8th/16th rests entirely.
-_BIG_REST_VALUES = ((16, 4.0), (12, 3.0), (8, 2.0), (6, 1.5), (4, 1.0))
 
 
-def _quarter_only_split(total: float):
-    """Express `total` beats using quarter-or-longer values only, else None."""
-    n = int(round(total * 4))
-    if n <= 0:
-        return None
-    best = {0: None}
-    for i in range(1, n + 1):
-        for val, beats in _BIG_REST_VALUES:
-            if i - val in best:
-                best[i] = (i - val, beats)
-                break
-    if n not in best:
-        return None
-    out = []
-    k = n
-    while k:
-        prev, beats = best[k]
-        out.append(beats)
-        k = prev
-    return out
 
 
-def _measure_boundaries(num: int, den: int, measure_len: float,
-                        grouping: Optional[Dict[str, List[int]]]) -> Optional[List[float]]:
-    """Group boundaries (in beats) of an asymmetric meter, e.g. 7/8 "2+2+3"."""
-    groups = (grouping or {}).get(f"{num}/{den}")
-    if not groups or sum(groups) != num:
-        return None
-    unit = 4.0 / den
-    out: List[float] = []
-    acc = 0.0
-    for g in groups[:-1]:
-        acc += g * unit
-        if 1e-9 < acc < measure_len - 1e-9:
-            out.append(acc)
-    return out or None
 
 
-def _decompose_rest(beats: float, start: float,
-                    measure_len: Optional[float] = None,
-                    boundaries: Optional[List[float]] = None) -> List[Tuple[float, str, bool, Optional[Tuple[int, int]]]]:
-    """Split a rest at beat boundaries, shortest piece first.
-
-    A 1.25-beat rest beginning at beat 2.75 becomes "16th + quarter" (short piece
-    on the beat's tail, then the full beat) instead of "quarter + 16th", which is
-    the standard, beat-aligned engraving convention.
-    """
-    # Asymmetric meters: break at the declared beat groups (5/8 = 3+2, 7/8 = 2+2+3).
-    if boundaries:
-        cuts = [b for b in boundaries if start + 1e-9 < b < start + beats - 1e-9]
-        if cuts:
-            parts: List[Tuple[float, str, bool, Optional[Tuple[int, int]]]] = []
-            cursor = start
-            for b in cuts + [start + beats]:
-                parts += _decompose_rest_segment(b - cursor, cursor)
-                cursor = b
-            return parts
-
-    if _REST_STYLE.get("style") == "merged":
-        single = _type_from_beats(beats)
-        if single[0] is not None:
-            return [(beats, single[0], single[1], single[2])]
-    # In 4/4 a rest must not cross the middle of the bar: crotchets at each end of
-    # the bar are separated by two crotchet rests, never by a minim rest.
-    if measure_len and abs(measure_len % 4.0) < 1e-9 and measure_len >= 4.0:
-        mid = measure_len / 2.0
-        if start < mid - 1e-9 and start + beats > mid + 1e-9:
-            return (_decompose_rest_segment(mid - start, start)
-                    + _decompose_rest_segment(start + beats - mid, mid))
-    return _decompose_rest_segment(beats, start)
 
 
-def _decompose_rest_segment(beats: float, start: float) -> List[Tuple[float, str, bool, Optional[Tuple[int, int]]]]:
-    """Spell one rest segment that does not cross the bar midpoint."""
-    parts: List[Tuple[float, str, bool, Optional[Tuple[int, int]]]] = []
-    # A rest whose total length is already one standard value stays a SINGLE
-    # symbol (a one-beat rest at 1.5 is a quarter rest, not two 8th rests), except
-    # for a half rest on an odd beat, whose position would be ambiguous.
-    if _REST_STYLE.get("style") == "merged":
-        single = _type_from_beats(beats)
-        if single[0] is not None:
-            return [(beats, single[0], single[1], single[2])]
-    single = _type_from_beats(beats)
-    if single[0] is not None and not (abs(beats - 2.0) < 1e-9 and abs(start % 2.0) > 1e-9):
-        return [(beats, single[0], single[1], single[2])]
-    remaining = beats
-    cur = start
-    guard = 0
-    while remaining > 1e-6 and guard < 64:
-        guard += 1
-        on_beat = abs(cur - round(cur)) < 1e-6
-        if on_beat:
-            # Starting on a beat: keep the whole span as the largest resting value
-            # (3 beats -> one dotted half rest, 4 beats -> one whole rest), so we
-            # never chop a long rest into a row of quarter rests.
-            chunk = remaining
-        else:
-            # Starting off the beat: fill to the next beat first (short piece
-            # first), then the remainder is beat-aligned.
-            chunk = min(math.ceil(cur - 1e-9) - cur, remaining)
-        if abs(chunk - 2.0) < 1e-9 and abs(cur % 2.0) > 1e-9:
-            # a minim rest on beat 2/4 is ambiguous -> two crotchet rests
-            chunk = 1.0
-        big = _quarter_only_split(chunk)
-        if big is not None:
-            for v in big:
-                parts.extend(_decompose_duration(v))
-        else:
-            parts.extend(_decompose_duration(chunk))
-        remaining -= chunk
-        cur += chunk
-    return parts
 
 
 def _emit_piece(parent: ET.Element, piece: Piece, unpitched: bool = False, staff_lines: int = 5,
@@ -989,94 +837,16 @@ def _emit_piece(parent: ET.Element, piece: Piece, unpitched: bool = False, staff
         _note_element(parent, sub, unpitched, staff_lines, part_id)
 
 
-def _direction_words(measure: ET.Element, text: str, offset: Optional[int] = None) -> None:
-    d = ET.SubElement(measure, "direction", placement="above")
-    dt = ET.SubElement(d, "direction-type")
-    ET.SubElement(dt, "words").text = text
-    if offset:
-        ET.SubElement(d, "offset").text = str(offset)
 
 
-def _tempo_direction(measure: ET.Element, bpm: float) -> None:
-    d = ET.SubElement(measure, "direction")
-    dt = ET.SubElement(d, "direction-type")
-    metro = ET.SubElement(dt, "metronome")
-    ET.SubElement(metro, "beat-unit").text = "quarter"
-    ET.SubElement(metro, "per-minute").text = str(int(round(bpm)))
-    ET.SubElement(d, "sound", tempo=str(int(round(bpm))))
 
 
-def _plan_dynamics(part: Part) -> None:
-    """Derive a small number of dynamic markings from MIDI velocity.
-
-    Velocity is smoothed with a 4-beat median window; a level is only printed when
-    it is actually sustained, so the score gets a handful of markings instead of
-    one per note.
-    """
-    levels = ["pp", "p", "mp", "mf", "f", "ff"]
-    bounds = [0, 45, 62, 78, 95, 112, 128]
-
-    def level_of(v: float) -> str:
-        for i in range(len(bounds) - 1):
-            if bounds[i] <= v < bounds[i + 1]:
-                return levels[i]
-        return levels[-1]
-
-    notes = [n for n in sorted(part.notes, key=lambda n: n.start) if n.velocity]
-    if not notes:
-        part.dynamic_marks = []
-        return
-
-    marks: List[Tuple[float, str]] = []
-    current = None
-    i = 0
-    while i < len(notes):
-        beat = notes[i].start
-        window = [n.velocity for n in notes if abs(n.start - beat) <= 2.0]
-        window.sort()
-        med = window[len(window) // 2]
-        lvl = level_of(med)
-        # how long does this level persist?
-        j = i
-        while j < len(notes) and abs(notes[j].start - beat) <= 4.0:
-            w = sorted(n.velocity for n in notes if abs(n.start - notes[j].start) <= 2.0)
-            if level_of(w[len(w) // 2]) != lvl:
-                break
-            j += 1
-        sustained = (notes[j - 1].start - beat) if j > i else 0.0
-        if (current is None or lvl != current) and (current is None or sustained >= 2.0):
-            marks.append((beat, lvl))
-            current = lvl
-        i = j if j > i else i + 1
-    part.dynamic_marks = marks
 
 
-DYNAMIC_VELOCITY = {"pp": 33, "p": 50, "mp": 70, "mf": 85, "f": 100, "ff": 115}
 
 
-def _dynamic_direction(measure: ET.Element, level: str, offset: Optional[int] = None) -> None:
-    d = ET.SubElement(measure, "direction", placement="below")
-    dt = ET.SubElement(d, "direction-type")
-    dyn = ET.SubElement(dt, "dynamics")
-    ET.SubElement(dyn, level)
-    if offset:
-        ET.SubElement(d, "offset").text = str(offset)
-    ET.SubElement(d, "sound", dynamics=str(DYNAMIC_VELOCITY.get(level, 80)))
 
 
-def _harp_pedal_direction(measure: ET.Element, state: Dict[str, int], offset: Optional[int] = None) -> None:
-    """Emit native MusicXML <harp-pedals> so the notation software draws a real
-    pedal diagram (a run of text glyphs renders as boxes when the font lacks
-    U+266D/U+266E)."""
-    d = ET.SubElement(measure, "direction", placement="above")
-    dt = ET.SubElement(d, "direction-type")
-    hp = ET.SubElement(dt, "harp-pedals")
-    for step in ("D", "C", "B", "E", "F", "G", "A"):
-        pt = ET.SubElement(hp, "pedal-tuning")
-        ET.SubElement(pt, "pedal-step").text = step
-        ET.SubElement(pt, "pedal-alter").text = str(int(state.get(step, 0)))
-    if offset:
-        ET.SubElement(d, "offset").text = str(offset)
 
 
 def _clef_for(instrument_type: str, part_name: str) -> Tuple[str, str]:
@@ -1093,70 +863,6 @@ def _clef_for(instrument_type: str, part_name: str) -> Tuple[str, str]:
     return "G", "2"
 
 
-def _add_tuplet_brackets(measure: ET.Element) -> None:
-    """Wrap each run of tuplet notes in <tuplet type="start"/"stop"> notation.
-
-    <time-modification> alone gives the ratio but no bracket, so the score would
-    show bare notes with nothing telling the reader it is a triplet. Engraving
-    practice always brackets (or beams) the group.
-    """
-    voices: Dict[str, List[Tuple[float, ET.Element]]] = {}
-    pos = 0.0
-    for el in measure:
-        if el.tag == "backup":
-            pos -= float(el.find("duration").text) / DIVISIONS
-            continue
-        if el.tag == "forward":
-            pos += float(el.find("duration").text) / DIVISIONS
-            continue
-        if el.tag != "note":
-            continue
-        d = float(el.find("duration").text) / DIVISIONS
-        if el.find("chord") is not None:
-            continue
-        v = el.find("voice").text if el.find("voice") is not None else "1"
-        voices.setdefault(v, []).append((pos, el))
-        pos += d
-
-    def _insert(note: ET.Element, type_: str) -> None:
-        notations = note.find("notations")
-        if notations is None:
-            notations = ET.SubElement(note, "notations")
-        idx = 0
-        for i, child in enumerate(list(notations)):
-            if child.tag in ("footnote", "level", "tied", "slur"):
-                idx = i + 1
-        tup = ET.Element("tuplet", number="1", type=type_)
-        notations.insert(idx, tup)
-
-    for _v, seq in voices.items():
-        i = 0
-        while i < len(seq):
-            el = seq[i][1]
-            tm = el.find("time-modification")
-            if tm is None:
-                i += 1
-                continue
-            ratio = (tm.find("actual-notes").text, tm.find("normal-notes").text)
-            group = [seq[i]]
-            end = seq[i][0] + float(el.find("duration").text) / DIVISIONS
-            j = i + 1
-            while j < len(seq):
-                nxt = seq[j][1]
-                ntm = nxt.find("time-modification")
-                if ntm is None:
-                    break
-                if (ntm.find("actual-notes").text, ntm.find("normal-notes").text) != ratio:
-                    break
-                if abs(seq[j][0] - end) > 1e-6:
-                    break
-                group.append(seq[j])
-                end = seq[j][0] + float(nxt.find("duration").text) / DIVISIONS
-                j += 1
-            if len(group) >= 2:
-                _insert(group[0][1], "start")
-                _insert(group[-1][1], "stop")
-            i = j
 
 
 def _build_measure(part: Part, m: int, measures: List[Tuple[float, int, int]], key_fifths: int,
@@ -1316,9 +1022,7 @@ def build_musicxml(score: Score, config: ScoreEngravingConfig) -> str:
     for part in parts:
         _plan_dynamics(part)
         if not part.unpitched:
-            flat_key = _part_fifths(score.key_fifths, part.transpose) < 0
-            for n in part.notes:
-                _spell_note(n, flat_key)
+            _spell_part(part, _part_fifths(score.key_fifths, part.transpose))
 
     measures = build_measure_map(score)
 

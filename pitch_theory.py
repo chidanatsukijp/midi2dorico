@@ -53,3 +53,90 @@ HARP_STEPS: List[str] = ["D", "C", "B", "E", "F", "G", "A"]
 def octave_of(pitch: int, step: str, alter: int) -> int:
     """Scientific-pitch octave number of a spelled note."""
     return round((pitch - STEP_SEMITONE[step] - alter) / 12) - 1
+
+
+#: order the sharps / flats appear in a key signature
+SHARP_ORDER = "FCGDAEB"
+FLAT_ORDER = "BEADGCF"
+
+#: scale degrees (0 = tonic) normally raised (4th, 1st) or lowered (7th, 3rd, 6th, 2nd)
+RAISE_DEGREES = {0, 3}
+LOWER_DEGREES = {1, 2, 5, 6}
+LETTER_ORDER = "CDEFGAB"
+CIRCLE_OF_FIFTHS = "FCGDAEB"
+
+
+def tonic_letter(fifths: int) -> str:
+    """Letter of the tonic for a key signature."""
+    return CIRCLE_OF_FIFTHS[(1 + fifths) % 7]
+
+
+def degree_of(letter: str, fifths: int) -> int:
+    """Scale degree of a letter in this key (0 = tonic)."""
+    tonic = LETTER_ORDER.index(tonic_letter(fifths))
+    return (LETTER_ORDER.index(letter) - tonic) % 7
+
+
+def key_accidentals(fifths: int) -> Dict[str, int]:
+    """Accidental carried by each letter in the key signature."""
+    acc = {letter: 0 for letter in "CDEFGAB"}
+    if fifths > 0:
+        for letter in SHARP_ORDER[:min(fifths, 7)]:
+            acc[letter] += 1
+    elif fifths < 0:
+        for letter in FLAT_ORDER[:min(-fifths, 7)]:
+            acc[letter] -= 1
+    return acc
+
+
+def spell_note(pitch: int, fifths: int,
+               prev_pitch: int | None = None,
+               next_pitch: int | None = None) -> Tuple[str, int]:
+    """Pick the spelling a musician would write in this key.
+
+    Ranking is tiered, because these cases must not be traded against each other:
+
+    1. a note that is diatonic in the key always wins;
+    2. otherwise, returning a letter the key signature alters back to its natural
+       state (B-flat major: B natural, not C-flat);
+    3. otherwise the usual chromatic conventions decide - raise the 4th and 1st
+       degree, lower the 7th, 3rd, 6th and 2nd - and the melodic direction breaks
+       what is left: an ascending note is written sharp, a descending one flat.
+    """
+    key_acc = key_accidentals(fifths)
+
+    def rank(candidate: Tuple[str, int]) -> Tuple[int, float, int]:
+        step, alter = candidate
+        base = key_acc[step]
+        diff = alter - base
+
+        if diff == 0:
+            return (3, 0.0, alter)
+        if base != 0 and diff == -base:
+            return (2, 0.0, alter)
+
+        merit = 0.0
+        degree = degree_of(step, fifths)
+        if diff == 1 and degree in RAISE_DEGREES:
+            merit += 1.0
+        if diff == -1 and degree in LOWER_DEGREES:
+            merit += 1.0
+        if prev_pitch is not None and prev_pitch != pitch:
+            rising = pitch > prev_pitch
+            if rising and diff > 0:
+                merit += 1.2
+            elif not rising and diff < 0:
+                merit += 1.2
+        if next_pitch is not None and next_pitch != pitch:
+            rising = next_pitch > pitch
+            if rising and diff > 0:
+                merit += 1.0
+            elif not rising and diff < 0:
+                merit += 1.0
+        if fifths > 0 and alter > 0:
+            merit += 0.3
+        elif fifths < 0 and alter < 0:
+            merit += 0.3
+        return (1, merit, alter)
+
+    return max(PC_SPELLINGS[pitch % 12], key=rank)

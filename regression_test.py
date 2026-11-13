@@ -207,14 +207,16 @@ def test_profiles() -> str:
 
 def test_beat_grouping() -> str:
     """Asymmetric meters break rests at the declared beat groups."""
-    grouping = {"5/8": [3, 2], "7/8": [2, 2, 3]}
-    eq(XE._measure_boundaries(7, 8, 3.5, grouping), [1.0, 2.0], "7/8 boundaries")
-    eq(XE._measure_boundaries(5, 8, 2.5, grouping), [1.5], "5/8 boundaries")
-    eq(XE._measure_boundaries(4, 4, 4.0, grouping), None, "4/4 keeps the midpoint rule")
+    from notation_values import _decompose_rest, _measure_boundaries
 
-    eq([p[0] for p in XE._decompose_rest(3.5, 0.0, 3.5, [1.0, 2.0])],
+    grouping = {"5/8": [3, 2], "7/8": [2, 2, 3]}
+    eq(_measure_boundaries(7, 8, 3.5, grouping), [1.0, 2.0], "7/8 boundaries")
+    eq(_measure_boundaries(5, 8, 2.5, grouping), [1.5], "5/8 boundaries")
+    eq(_measure_boundaries(4, 4, 4.0, grouping), None, "4/4 keeps the midpoint rule")
+
+    eq([p[0] for p in _decompose_rest(3.5, 0.0, 3.5, [1.0, 2.0])],
        [1.0, 1.0, 1.5], "7/8 spelled 2+2+3")
-    eq([p[0] for p in XE._decompose_rest(2.5, 0.0, 2.5, [1.5])],
+    eq([p[0] for p in _decompose_rest(2.5, 0.0, 2.5, [1.5])],
        [1.5, 1.0], "5/8 spelled 3+2")
 
     # a 7/8 bar whose only note is the first eighth: everything else is rests
